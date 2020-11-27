@@ -233,10 +233,3 @@ def calculate_cosines(batch_images_T, batch_actions_T, log_depths_T, batch_image
 
 def compute_cosines(puzzles_list, memory_v2, nn_model):
     batch_images, batch_actions = get_batch_data(puzzles_list, memory_v2, nn_model)
-
-
-
-
-
-
-

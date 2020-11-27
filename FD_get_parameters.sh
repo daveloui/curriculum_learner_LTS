@@ -12,4 +12,3 @@ output_exp="${output}${algorithm}-${loss}"
 model=${size_puzzle}-${domain_name}-${loss}
 sbatch --output="${output_exp}" --export=algorithm=${algorithm},model=${model},problem=${problems_dir},loss=${loss} FD_submit_experiment.sh
 echo "finished calling sbatch"
-
