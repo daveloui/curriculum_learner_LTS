@@ -1,3 +1,4 @@
+import sys
 import os
 import time
 from os import listdir
@@ -18,6 +19,7 @@ from multiprocessing import set_start_method
 
 from game_state import GameState
 from bootstrap_dfs_learning_planner import BootstrapDFSLearningPlanner
+from parameter_parser import parameter_parser
 
 
 def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-1):
@@ -39,10 +41,6 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
     start_time = time.time ()
 
     while len (states) > 0:
-
-        #         args = [(state, name, nn_model, search_budget, start_time, time_limit_seconds, slack_time) for name, state in states.items()]
-        #         solution_depth, expanded, generated, running_time, puzzle_name = planner.search(args[0])
-
         with ProcessPoolExecutor (max_workers=ncpus) as executor:
             args = ((state, name, nn_model, search_budget, start_time, time_limit_seconds, slack_time) for name, state
                     in states.items ())
@@ -73,9 +71,12 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
         search_budget *= 2
 
 
-def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropout, batch):
-    planner = BootstrapDFSLearningPlanner (beta, dropout,
+def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropout, batch, nn_model):
+    print("in test_bootstrap_dfs_lvn_learning_planner")
+
+    planner = BootstrapDFSLearningPlanner (nn_model, beta, dropout,
                                            batch)  # FD: creates an instance of the class "BootstrapDFSLearningPlanner"
+    print("passed planner = BootstrapDFSLearningPlanner(...)")
     models_folder = output + '_models'
     if not os.path.exists (models_folder):
         os.makedirs (models_folder)
@@ -100,8 +101,9 @@ def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropo
 
         for file, state in unsolved_puzzles.items ():  # FD: take each file and initial puzzle_state
             state.clear_path ()
+            print("call planner.lvn_search_budget_for_learning")
             has_found_solution, new_bound = planner.lvn_search_budget_for_learning (state, state_budget[state])
-
+            print("passed vn_search_budget_for_learning")
             if has_found_solution:
                 cost = planner.get_solution_depth ()
                 number_solved += 1
@@ -151,7 +153,9 @@ def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropo
         planner.preprocess_data ()
         error = 1
         while error > epsilon:
+            print("gonna call planner learn")
             error = planner.learn ()  # this trains the policy? -- if there were 0 solved puzzles, then how does the planner learn?
+            print("passed planner learn")
             print (error, epsilon)
 
         id_batch += 1
@@ -163,6 +167,7 @@ def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropo
 
 
 def main2():
+    parameters = parameter_parser()
     if len (sys.argv[1:]) < 1:
         print (
             'Usage for learning a new model: main bootstrap_dfs_lvn_learning_planner <folder-with-puzzles> <output-file> <dropout-rate> <batch-size>')
@@ -184,20 +189,29 @@ def main2():
             join (puzzle_folder, file))  # calls method "read_state" and passes the current puzzle_file to this method
         states[file] = s  # adds key = file, value = s to the states dictionary
 
-    if planner_name == 'bootstrap_dfs_lvn_learning_planner':
-        output_file = sys.argv[3]
-        dropout = float (sys.argv[4])
-        batch = int (sys.argv[5])
-        beta = 0.0  # beta is an entropy regularizer term; it isn't currently used in the code
-        # FD: what is an entropy regularizer?
-        test_bootstrap_dfs_lvn_learning_planner (states, output_file, 1e-1, beta, dropout, batch)
-        # arguments: states, output, epsilon, beta, dropout, batch
+    print("planner_name =", planner_name)
 
-    if planner_name == 'learned_planner':
-        output_file = sys.argv[3]
-        model_folder = sys.argv[4]
-        test_bootstrap_dfs_lvn_learned_model_planner (states, output_file, 0, 1.0, 0, model_folder)
-        # FD: inputs are "states, output, beta, dropout, batch, model_folder"
+    KerasManager.register ('KerasModel', KerasModel)
+    ncpus = int (os.environ.get ('SLURM_CPUS_PER_TASK', default=1))
+    with KerasManager () as manager:
+        nn_model = manager.KerasModel ()
+
+        if planner_name == 'bootstrap_dfs_lvn_learning_planner':
+            nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=True)
+
+            output_file = sys.argv[3]
+            dropout = float (sys.argv[4])
+            batch = int (sys.argv[5])
+            beta = 0.0  # beta is an entropy regularizer term; it isn't currently used in the code
+            # FD: what is an entropy regularizer?
+            test_bootstrap_dfs_lvn_learning_planner (states, output_file, 1e-1, beta, dropout, batch, nn_model)
+            # arguments: states, output, epsilon, beta, dropout, batch
+
+        if planner_name == 'learned_planner':
+            output_file = sys.argv[3]
+            model_folder = sys.argv[4]
+            test_bootstrap_dfs_lvn_learned_model_planner (states, output_file, 0, 1.0, 0, model_folder)
+            # FD: inputs are "states, output, beta, dropout, batch, model_folder"
     return
 
 
@@ -207,64 +221,8 @@ def main():
     Levin tree search (LTS) algorithm, or to use a trained neural network with LTS.
     """
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    parser = argparse.ArgumentParser ()
+    parameters = parameter_parser()
 
-    parser.add_argument ('-l', action='store', dest='loss_function',
-                         default='CrossEntropyLoss',
-                         help='Loss Function')
-
-    parser.add_argument ('-p', action='store', dest='problems_folder',
-                         help='Folder with problem instances')
-
-    parser.add_argument ('-m', action='store', dest='model_name',
-                         help='Name of the folder of the neural model')
-
-    parser.add_argument ('-a', action='store', dest='search_algorithm',
-                         help='Name of the search algorithm (Levin, LevinStar, AStar, GBFS, PUCT)')
-
-    parser.add_argument ('-d', action='store', dest='problem_domain',
-                         help='Problem domain (Witness or SlidingTile)')
-
-    parser.add_argument ('-b', action='store', dest='search_budget', default=1000,
-                         help='The initial budget (nodes expanded) allowed to the bootstrap procedure')
-
-    parser.add_argument ('-g', action='store', dest='gradient_steps', default=10,
-                         help='Number of gradient steps to be performed in each iteration of the Bootstrap system')
-
-    parser.add_argument ('-cpuct', action='store', dest='cpuct', default='1.0',
-                         help='Constant C used with PUCT.')
-
-    parser.add_argument ('-time', action='store', dest='time_limit', default='43200',
-                         help='Time limit in seconds for search')
-
-    parser.add_argument ('-scheduler', action='store', default='uniform',
-                         dest='scheduler',
-                         help='Run Bootstrap with a scheduler (either uniform or gbs)')
-
-    parser.add_argument ('-mix', action='store', dest='mix_epsilon', default='0.0',
-                         help='Mixture with a uniform policy')
-
-    parser.add_argument ('--default-heuristic', action='store_true', default=False,
-                         dest='use_heuristic',
-                         help='Use the default heuristic as input')
-
-    parser.add_argument ('--learned-heuristic', action='store_true', default=False,
-                         dest='use_learned_heuristic',
-                         help='Use/learn a heuristic')
-
-    parser.add_argument ('--blind-search', action='store_true', default=False,
-                         dest='blind_search',
-                         help='Perform blind search')
-
-    parser.add_argument ('--single-test-file', action='store_true', default=False,
-                         dest='single_test_file',
-                         help='Use this if problem instance is a file containing a single instance.')
-
-    parser.add_argument ('--learn', action='store_true', default=False,
-                         dest='learning_mode',
-                         help='Train as neural model out of the instances from the problem folder')
-
-    parameters = parser.parse_args ()
 
     states = {}
 
@@ -454,5 +412,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
-    main2 ()
+    main()
+    # main2 ()

@@ -1,12 +1,13 @@
-from conv_net import ConvNet
+from models.conv_net import ConvNet
 import copy
 import numpy as np
 import math
+print("passed imports")
 
 
 class BootstrapDFSLearningPlanner ():
 
-    def __init__(self, beta, dropout, batch, model_folder='', model_name=''):
+    def __init__(self, nn_model, beta, dropout, batch, model_folder='', model_name=''):
         """
         Contructor of planner.
 
@@ -16,7 +17,7 @@ class BootstrapDFSLearningPlanner ():
             batch: size of training batch --- FD: how many puzzles are in the batch?
             model_folder and model_name: if empty, then a new model is created; model is loaded otherwise
         """
-        self.conv_nn = ConvNet (beta, dropout, model_folder, model_name)
+        self.conv_nn = nn_model # ConvNet (beta, dropout, model_folder, model_name)
 
         self.train_positive_labels = []
         self.train_positive_images = []
@@ -45,11 +46,18 @@ class BootstrapDFSLearningPlanner ():
         y[np.arange (path_array.shape[0]), path_array] = 1
         return y
 
-    def save_model(self, model_name, step):
+    def save_model(self, filepath):   # model_name, step TODO: can we checkpoint using step somehow?
         """
         Saves the weight of the current neural network
         """
-        self.conv_nn.save_model (model_name, step)
+        self.conv_nn.save_model (filepath)  #model_name, step
+
+    def save_weights(self, filepath):
+        '''
+        The filepath specifies the iteration, the batch id is
+        '''
+        self.conv_nn.save_weights (filepath)
+
 
     def learn(self):
         """
@@ -64,6 +72,7 @@ class BootstrapDFSLearningPlanner ():
         # such that len(random_indices) == len(self._y)
         local_x = np.array (self._x)
         local_y = np.array (self._y)
+        # print("local_x.shape =", local_x.shape, "  local_y.shape =", local_y.shape)
         errors = []
         for i in range (len (self._y)):
             index_beg = i * self.batch_size  # FD: why??
@@ -140,6 +149,10 @@ class BootstrapDFSLearningPlanner ():
                 self._x = self._get_images (rotated_states)
                 self._y = self._get_labels (rotated_actions)
 
+        # print("type self._x", type(self._x), " self._x.shape =", self._x.shape)
+        # print("type self._y", type(self._y), " self._y.shape =", self._y.shape)
+        # assert False
+
     def collect_training_data_from_last_solved(self):
         """
         Copy the states and actions taken at the states of solutions. These states and actions
@@ -174,7 +187,17 @@ class BootstrapDFSLearningPlanner ():
             return False
 
         actions = state.successors ()
-        action_distribution_log = self.conv_nn.classify_ylog (self._get_images (np.array ([state])))[0]
+        # action_distribution_log = self.conv_nn.classify_ylog (self._get_images (np.array ([state])))[0]
+        X = self._get_images (np.array ([state]))
+        # print(type(X[0]))
+        # print(X.shape[0])
+        # assert False
+        action_distribution_log, _ = self.conv_nn.predict (X)
+        action_distribution_log = action_distribution_log[0]
+        # print("action dist log ", action_distribution_log)
+        # print(type(action_distribution_log))
+        # print(action_distribution_log.shape)
+        # assert False
 
         for a in actions:
             child = copy.deepcopy (state)  # FD: is the child simply a copy of the current state?
@@ -186,7 +209,8 @@ class BootstrapDFSLearningPlanner ():
                 self.solution_actions.append (a)
                 self.solution_depth = depth + 1
                 return True
-
+            # print("p =", p, " a =", a)
+            # print("p + action_distribution_log[a]", p + action_distribution_log[a])
             if self._dfs_lvn_budget_for_learning (child, p + action_distribution_log[a], depth + 1, level):
                 self.solution_states.append (copy.deepcopy (state))
                 self.solution_actions.append (a)

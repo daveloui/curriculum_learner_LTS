@@ -166,6 +166,9 @@ class CrossEntropyLoss (LossFunction):
     def __init__(self):
         self.cross_entropy_loss = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
 
+    def compute_loss_w_batch(self, batch_actions, preds):
+        return self.cross_entropy_loss (batch_actions, preds)
+
     def compute_loss(self, trajectory, model):
         images = [s.get_image_representation () for s in trajectory.get_states ()]
         actions_one_hot = tf.one_hot (trajectory.get_actions (), model.get_number_actions ())

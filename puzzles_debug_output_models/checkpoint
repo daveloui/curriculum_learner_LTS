@@ -1,0 +1,2 @@
+model_checkpoint_path: "model_puzzles_debug_output_3"
+all_model_checkpoint_paths: "model_puzzles_debug_output_3"

@@ -8,7 +8,9 @@ class KerasModel ():
         self.mutex = Lock ()
         self.model = None
 
-    def initialize(self, loss_name, search_algorithm, two_headed_model=False):
+    def initialize(self, loss_name, search_algorithm, two_headed_model=False, beta=0.1, dropout = 1.0, model_folder='', model_name=''):
+        # TODO: the model folder and model name would be where the model is saved
+
         if (search_algorithm == 'Levin'
                 or search_algorithm == 'LevinMult'
                 or search_algorithm == 'LevinStar'
@@ -16,7 +18,8 @@ class KerasModel ():
             if two_headed_model:
                 self.model = TwoHeadedConvNet ((2, 2), 32, 4, loss_name)
             else:
-                self.model = ConvNet ((2, 2), 32, 4, loss_name)
+                self.model = ConvNet ((2, 2), 32, 4, loss_name, beta, dropout, model_folder, model_name)
+
         if search_algorithm == 'AStar' or search_algorithm == 'GBFS':
             self.model = HeuristicConvNet ((2, 2), 32, 4)
 
@@ -32,11 +35,22 @@ class KerasModel ():
         print ("now saving nn_weights")
         self.model.save_weights (filepath)
 
+    def save_model(self, filepath):
+        print ("now saving nn_model")
+        self.model.save_weights (filepath)
+
+    def new_save_model(self, filepath):
+        self.model.save(filepath)
+
     def load_weights(self, filepath):
         self.model.load_weights (filepath).expect_partial ()
 
     def get_gradients_from_batch(self, array_images, array_labels):
         return self.model.get_gradients_from_batch (array_images, array_labels)
+
+    def batch_train_positive_examples(self, training_inputs, training_labels):
+        print("calling batch_train_positive_examples")
+        return self.model.batch_train_positive_examples(training_inputs, training_labels)
 
 
 class KerasManager (BaseManager):

@@ -596,7 +596,7 @@ class Bootstrap:
                     # any of the puzzles solved with current budget and stored in memory
                     for _ in range (self._gradient_steps):  # train the NN g times
                         loss = nn_model.train_with_memory (memory)
-                        # print('Loss: ', loss)
+                        print('Loss: ', loss)
                     memory.clear ()  # clear memory
                     nn_model.save_weights (join (self._models_folder, 'model_weights'))
                     # after the for loop ends, memory is empty and mot recent weights are saved

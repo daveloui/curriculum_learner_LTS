@@ -182,7 +182,7 @@ class TwoHeadedConvNet (tf.keras.Model):
 
 class ConvNet (tf.keras.Model):
 
-    def __init__(self, kernel_size, filters, number_actions, loss_name, reg_const=0.001):
+    def __init__(self, kernel_size, filters, number_actions, loss_name, reg_const=0.001, beta=0.1, dropout=1.0, model_folder='', model_name=''):
         tf.keras.backend.set_floatx ('float64')
 
         super (ConvNet, self).__init__ (name='')
@@ -216,7 +216,7 @@ class ConvNet (tf.keras.Model):
                                              name='dense2',
                                              dtype='float64')
 
-        self.optimizer = tf.keras.optimizers.Adam (learning_rate=0.0001)
+        self.optimizer = tf.keras.optimizers.Adam (learning_rate=0.0001)  #0.0001
 
         if loss_name == 'LevinLoss':
             self._loss_function = LevinLoss ()
@@ -278,20 +278,6 @@ class ConvNet (tf.keras.Model):
 
             grads = tape.gradient (loss, self.trainable_weights)
 
-            #             if self._loss_name == 'ImprovedLevinLoss':
-            #                 if len(self._max_grad_norms) == 0:
-            #                     for grad in grads:
-            #                         self._max_grad_norms.append(tf.norm(grad, ord=1))
-            #                 else:
-            #                     for i in range(len(grads)):
-            #                         norm = tf.norm(grads[i], ord=1)
-            #
-            #                         if norm > self._max_grad_norms[i]:
-            #                             self._max_grad_norms[i] = norm
-            #
-            #                         if self._max_grad_norms[i] > 0:
-            #                             grads[i] /= self._max_grad_norms[i]
-
             self.optimizer.apply_gradients (zip (grads, self.trainable_weights))
             losses.append (loss)
 
@@ -305,5 +291,30 @@ class ConvNet (tf.keras.Model):
 
         return loss
 
+    def batch_train_positive_examples(self, batch_training_data, batch_actions): # batch data is a list of traject_data_list(s)
+        with tf.GradientTape () as tape:
+            tape.watch (self.trainable_variables)
+            x = self.conv1 (batch_training_data)
+            x = self.conv2 (x)
+            x = self.flatten (x)
+            x = self.dense1 (x)
+            preds = self.dense2 (x)
+            # print("here, preds.shape =", preds.shape) # these are logits
+            loss = self._loss_function.compute_loss_w_batch (batch_actions, preds)
+        grads = tape.gradient (loss, self.trainable_variables)
+        self.optimizer.apply_gradients (zip (grads, self.trainable_variables))
+        loss_val = loss.numpy ()
+        print("loss_val", loss_val)
+        return loss_val
+
+    def train_w_batch(self, batch_training_data, batch_actions, grads_train):
+        self.optimizer.apply_gradients (zip (grads_train, self.trainable_variables))
+        return
+
+    # def new_save_model(self, filepath):
+    #     self.save(filepath)
+
+
     def get_number_actions(self):
         return self._number_actions
+
