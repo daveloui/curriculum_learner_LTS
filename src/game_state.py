@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import random
 from collections import deque
 
+np.random.seed (1)
+random.seed (1)
+
 
 class InvalidPuzzlePositionException (Exception):
     pass

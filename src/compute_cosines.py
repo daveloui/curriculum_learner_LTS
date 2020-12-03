@@ -3,6 +3,14 @@ import tensorflow as tf
 import os
 from os.path import join
 import pickle
+from tensorflow import keras
+from tensorflow.keras import layers
+
+from models.model_wrapper import KerasManager, KerasModel
+from models.temp_model import TempConvNet #temp_model,
+
+tf.random.set_seed (1)
+np.random.seed (1)
 
 # images = [s.get_image_representation () for s in trajectory.get_states ()]
 # actions_one_hot = tf.one_hot (trajectory.get_actions (), model.get_number_actions ())
@@ -44,11 +52,11 @@ def check_if_data_saved(puzzle_dims):
     return os.path.isfile (filename)
 
 
-def store_or_retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2, puzzle_dims, store=True):
+def store_batch_data_solved_puzzles(puzzles_list, memory_v2, puzzle_dims):
     flatten_list = lambda l: [item for sublist in l for item in sublist]
 
     # TODO: should I save the np.array of images or data that can be used to gnerate the np.arrays?
-    print("store_or_retrieve_batch_data_solved_puzzles -- len(puzzles_list)", len(puzzles_list))
+    # print("store_or_retrieve_batch_data_solved_puzzles -- len(puzzles_list)", len(puzzles_list))
     all_images_list = []
     all_actions = []
     d = {}
@@ -68,12 +76,11 @@ def store_or_retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2, puzzle_
 
         all_images_list.append(images_p) # list of sublists; each sublists contain np.arrays
     assert len(all_images_list) == len(all_actions)
-    if not store:  # if we are not storing the batch_images and batch_actions of P_new, return the dictionary
-        return d  #batch_images, batch_actions
 
-    # batch_images = np.vstack(all_images_list)
-    # batch_actions = np.vstack(all_actions)
-    # assert batch_images.shape[0] == batch_actions.shape[0]
+
+    batch_images = np.vstack(all_images_list)
+    batch_actions = np.vstack(all_actions)
+    assert batch_images.shape[0] == batch_actions.shape[0]
 
     # TODO: create folder and file name where we are going to save the dictionary d
     batch_folder = 'solved_puzzles/' + puzzle_dims + "/"
@@ -91,6 +98,39 @@ def store_or_retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2, puzzle_
     # print(type(objects[0]))
     # for k, v in objects[0].items():
     #     print("k", k, " v[0].shape", v[0].shape, " v[1].shape", v[1].shape)
+
+
+def retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2):
+    flatten_list = lambda l: [item for sublist in l for item in sublist]
+
+    # TODO: should I save the np.array of images or data that can be used to gnerate the np.arrays?
+    # print("store_or_retrieve_batch_data_solved_puzzles -- len(puzzles_list)", len(puzzles_list))
+    all_images_list = []
+    all_actions = []
+    d = {}
+    for puzzle_name in puzzles_list:
+        images_p = []
+        trajectory_p = memory_v2.trajectories_dict[puzzle_name]
+        actions_one_hot = tf.one_hot (trajectory_p.get_actions (), 4)
+        all_actions.append(actions_one_hot)   # a list of tensors
+        for s in trajectory_p.get_states ():
+            single_img = s.get_image_representation ()
+            assert isinstance(single_img, np.ndarray)
+            images_p.append( single_img ) # a list of np.arrays
+        images_p = np.array(images_p, dtype=object)  # convert list of np.arrays to an array
+        assert isinstance (images_p, np.ndarray)
+        d[puzzle_name] = [images_p, actions_one_hot.numpy ()]
+        # print("images_p.shape", images_p.shape)
+        # print(actions_one_hot.shape)
+        # print("")
+
+        all_images_list.append (images_p)  # list of sublists; each sublists contain np.arrays
+        assert len (all_images_list) == len (all_actions)
+        batch_images = np.vstack (all_images_list)
+        batch_actions = np.vstack (all_actions)
+        assert batch_images.shape[0] == batch_actions.shape[0]
+
+    return batch_images, batch_actions
 
 
 def retrieve_all_batch_images_actions(d, list_solved_puzzles=None, label="S_minus_P"):
@@ -166,24 +206,39 @@ def get_grads_and_CEL_from_batch(array_images, array_labels, theta_model):
     sum_loss_val = num_images * mean_loss_val
     return sum_loss_val, mean_loss_val, last_grads
 
-def compute_and_save_cosines(batch_images_S, batch_actions_S, batch_images_P, batch_actions_P, label, iteration, theta_model):
-    cosine_S_pnew = None
-    cosine_S_T = None
-    mean_CEL_all_states_T = None
-    full_loss_T = None
-    mean_full_loss_over_all_puzzles_T = None
+def compute_and_save_cosines_helper_func(theta_diff, last_grads_P):
+    pass
 
-    # hget_grads used to return _, mean_CEL_all_states_S, full_loss_S, last_grads_S. It would take as inout everything AND #log_depths_S
-    _, _, last_grads_S = get_grads_and_CEL_from_batch (batch_images_S, batch_actions_S, theta_model)
-    print("returned last_grads_S")
-    print("last_grads_S.shape", last_grads_S.shape)
-    # mean_full_loss_over_all_puzzles_S = full_loss_S / num_initial_set_keys
 
-    # last_grads_pnew = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, memory_model, theta_model, False,
-    #                                                                                              False)
-    #
-    # if label == "cos_S_P": # P is in S
+
+def retrieve_last_NN_weights(models_folder, parameters, theta_model, P_batch_images):
+    # create toy NN:
+    print ("models_folder", models_folder)
+    new_model = TempConvNet((2, 2), 32, 4, 'CrossEntropyLoss')
+    new_model.load_weights(join (models_folder, "pretrained_weights.h5"))
+    print("passed!")
+    assert False
+
+
+def compute_cosines(batch_images_P, batch_actions_P, theta_model, models_folder, parameters):
+    print("batch_images_P.shape", batch_images_P.shape)
+    print("batch_actions_P.shape", batch_actions_P.shape)
+
+    _, _, last_grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model)
+
+    print("last_grads_P.shape", last_grads_P.shape)
+    print(last_grads_P)
+    theta_i = theta_model.retrieve_output_layer_weights()  # shape is (128, 4)
+    assert theta_i.shape[-1] == last_grads_P.shape[0]
+    print("type(theta_i) =", type(theta_i), " theta_i.shape =", theta_i.shape)
+
+    retrieve_last_NN_weights(models_folder, parameters, theta_model, batch_images_P)
+
+    theta_diff = (theta_n - theta_i)
+    compute_and_save_cosines_helper_func (theta_diff, last_grads_P)
+
     return
+
 
 def calculate_cosines(batch_images_T, batch_actions_T, log_depths_T, batch_images_S, batch_actions_S, log_depths_S,
                       batch_images_pnew, batch_actions_pnew, log_depths_pnew, theta_model, num_training_set_keys,
@@ -229,7 +284,3 @@ def calculate_cosines(batch_images_T, batch_actions_T, log_depths_T, batch_image
     # sum_loss_S is the sum of -log(pi(s_p)) for all states s_p in S (the sum of cross entropy losses)
     # mean_loss_S is the mean -log(pi(s_p))  " " (the cross entropy losses, which be default return the mean over each state s_p)
     return data_to_be_stored
-
-
-def compute_cosines(puzzles_list, memory_v2, nn_model):
-    batch_images, batch_actions = get_batch_data(puzzles_list, memory_v2, nn_model)

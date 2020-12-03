@@ -1,9 +1,12 @@
 import tensorflow as tf
 import numpy as np
+from tensorflow import keras
 from models.loss_functions import LevinLoss, CrossEntropyLoss, \
     CrossEntropyMSELoss, LevinMSELoss, MSELoss, ImprovedLevinLoss, \
     ImprovedLevinMSELoss, RegLevinLoss, RegLevinMSELoss
 
+tf.random.set_seed (1)
+np.random.seed (1)
 
 class InvalidLossFunction (Exception):
     pass
@@ -216,6 +219,17 @@ class ConvNet (tf.keras.Model):
                                              name='dense2',
                                              dtype='float64')
 
+        # Build the NN
+        inputs = tf.keras.Input (shape=(22, 22, 9,), name="img")
+        x = self.conv1 (inputs)
+        x = self.conv2 (x)
+        x = self.flatten (x)
+        x = self.dense1 (x)
+        outputs = self.dense2 (x)
+        super (ConvNet, self).__init__ (inputs=inputs, outputs=outputs, name='')
+        print ("len(self.weights) =", len (self.weights))
+        print ("summary for model we use for training", self.summary ())
+
         self.optimizer = tf.keras.optimizers.Adam (learning_rate=0.0001)  #0.0001
 
         if loss_name == 'LevinLoss':
@@ -269,7 +283,7 @@ class ConvNet (tf.keras.Model):
         return last_grads, loss_val, grads
 
     def train_with_memory(self, memory):
-        print ("inside convnet train_with_memory")
+        # print ("inside convnet train_with_memory")
         losses = []
         memory.shuffle_trajectories ()
         for trajectory in memory.next_trajectory ():
@@ -304,15 +318,32 @@ class ConvNet (tf.keras.Model):
         grads = tape.gradient (loss, self.trainable_variables)
         self.optimizer.apply_gradients (zip (grads, self.trainable_variables))
         loss_val = loss.numpy ()
-        print("loss_val", loss_val)
+        # print("loss_val", loss_val)
         return loss_val
 
     def train_w_batch(self, batch_training_data, batch_actions, grads_train):
         self.optimizer.apply_gradients (zip (grads_train, self.trainable_variables))
         return
 
-    # def new_save_model(self, filepath):
-    #     self.save(filepath)
+    def retrieve_output_layer_weights(self):
+        print("retrieve_output_layer_weights")
+        # output_weights = self.dense2.weights[0].numpy()
+        output_weights = self.dense2.weights[0].numpy()
+        return output_weights
+
+    def retrieve_output_layer_weights_temp(self):
+        print("retrieve_output_layer_weights_temp")
+        # output_weights = self.dense2.weights[0].numpy()
+        output_weights = self.dense2.weights
+        print(type(output_weights))
+        print(output_weights)
+
+        return output_weights
+
+    def clone_model(self):
+        new_model = keras.models.clone_model (self)
+        print("now we have a new_model")
+        print(new_model)
 
 
     def get_number_actions(self):

@@ -4,6 +4,9 @@ import numpy as np
 from abc import ABC
 import math
 
+tf.random.set_seed (1)
+np.random.seed (1)
+
 
 class LossFunction (ABC):
 

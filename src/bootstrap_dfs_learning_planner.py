@@ -2,7 +2,8 @@ from models.conv_net import ConvNet
 import copy
 import numpy as np
 import math
-print("passed imports")
+np.random.seed (1)
+
 
 
 class BootstrapDFSLearningPlanner ():
@@ -23,6 +24,13 @@ class BootstrapDFSLearningPlanner ():
         self.train_positive_images = []
         self._x = []  # FD: this is the training data (images)
         self._y = []  # FD: this is also the training data (image labels)
+
+        # FD: added:
+        self.P_states = []
+        self.P_actions = []
+        self._x_P = []
+        self._y_P = []
+
         self.budget = 1
         self.has_trained = False
 
@@ -115,6 +123,43 @@ class BootstrapDFSLearningPlanner ():
         """
         return len (self._x)
 
+    def preprocess_data_P(self):
+        """
+        Generates training data from solved instances of the puzzles. This is done by generating
+        all possible reflection of the solved puzzles. The label of each image (which represents a state)
+        if the action taken by the planner at that state while solving the problem.
+        FD: What is meant by "reflection of the solved puzzles"? -- with swapped colors, and rotated images
+        FD: the image represents a state of the puzzle, the label of the image is the action that the agent should take at that state.
+        """
+        rotated_states = []
+        rotated_actions = []
+
+        swap_colors = [False, True]
+        flip_up_down = [False, True]
+        number_of_rotations = [0, 1, 2, 3]
+        for swap in swap_colors:
+            for flip in flip_up_down:
+                for r in number_of_rotations:
+                    for i in range (0, len (self.P_states)):  # FD: iterate through all training images
+                        r_state = copy.deepcopy (self.P_states[i])  # FD: get one of the training images
+                        a = self.P_actions[i]  # FD: take its associated label
+                        for _ in range (r):
+                            r_state.rotate90 ()  # FD: rotate the image
+                            a = r_state.get_rotate90_action (a)  # FD: get the action of the associated rotated image
+                            # FD: but what do we do with these rotated images and their actions?
+                        if flip:
+                            r_state.flip_up_down ()
+                            a = r_state.get_flip_up_down_action (a)
+                        if swap:
+                            r_state.swap_colors ()
+                        rotated_states.append (r_state)
+                        rotated_actions.append (a)
+                self._x_P = self._get_images (rotated_states)
+                self._y_P = self._get_labels (rotated_actions)
+
+        self.P_states = []
+        self.P_actions = []
+
     def preprocess_data(self):
         """
         Generates training data from solved instances of the puzzles. This is done by generating
@@ -163,12 +208,16 @@ class BootstrapDFSLearningPlanner ():
         Lists self.solution_states and self.solution_actions are set to empty for the next iteration of the system
         """
         for i in range (0, len (self.solution_states)):
-            self.train_positive_images.append (copy.deepcopy (self.solution_states[i]))
+            self.train_positive_images.append (copy.deepcopy (self.solution_states[i]))  #FD: self.train_positive_images contains all the solutions sstates previously solved (all of T)
             self.train_positive_labels.append (self.solution_actions[i])
+
+            self.P_states.append (copy.deepcopy (self.solution_states[i]))
+            self.P_actions.append (self.solution_actions[i])
 
         self.solution_states = []
         self.solution_actions = []
-        # FD : at the end, we reset the "solution_states" and "solution_actions" lists to be empty.
+        # FD: solution_states only contains the states leading to a solution with current theta_i
+
 
     def _dfs_lvn_budget_for_learning(self, state, p, depth, level):
         """
@@ -189,15 +238,8 @@ class BootstrapDFSLearningPlanner ():
         actions = state.successors ()
         # action_distribution_log = self.conv_nn.classify_ylog (self._get_images (np.array ([state])))[0]
         X = self._get_images (np.array ([state]))
-        # print(type(X[0]))
-        # print(X.shape[0])
-        # assert False
         action_distribution_log, _ = self.conv_nn.predict (X)
         action_distribution_log = action_distribution_log[0]
-        # print("action dist log ", action_distribution_log)
-        # print(type(action_distribution_log))
-        # print(action_distribution_log.shape)
-        # assert False
 
         for a in actions:
             child = copy.deepcopy (state)  # FD: is the child simply a copy of the current state?

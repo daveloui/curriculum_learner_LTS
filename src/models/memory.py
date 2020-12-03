@@ -7,6 +7,8 @@ from os.path import isfile, join
 import sys
 import time
 
+np.random.seed (1)
+
 
 class Trajectory ():
     def __init__(self, states, actions, solution_costs, expanded, solution_pi=0.0):
@@ -130,7 +132,7 @@ class MemoryV2 ():
 
     def save_data(self):
         start = time.time ()
-        filename = 'memory_' + self.puzzle_dims + '.pkl'
+        filename = 'BFS_memory_' + self.puzzle_dims + '.pkl'
         filename = os.path.join (self.path_to_save_data, filename)
         # np.save (filename, self.dict) #np.savez (filename, **self.dict)
 

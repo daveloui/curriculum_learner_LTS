@@ -16,12 +16,15 @@ from domains.sokoban import Sokoban
 from search.puct import PUCT
 from bootstrap import Bootstrap
 from multiprocessing import set_start_method
+import pickle
 
 from game_state import GameState
 from bootstrap_dfs_learning_planner import BootstrapDFSLearningPlanner
 
 from compute_cosines import store_or_retrieve_batch_data_solved_puzzles, check_if_data_saved, \
     retrieve_all_batch_images_actions, compute_and_save_cosines
+
+os.environ['PYTHONHASHSEED'] = str(1)
 
 
 def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-1):
@@ -74,11 +77,17 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
 
 
 def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropout, batch, nn_model):
+    ordering_folder = "solved_puzzles/" + output.split("/")[0].split("_output")[0]
+    if not os.path.exists (ordering_folder):
+        os.makedirs (ordering_folder)
+    filename_save_ordering = 'Ordering_DFS'
+    filename_save_ordering = os.path.join (ordering_folder, filename_save_ordering + '.pkl')
+
     gradient_descent_steps = 1
     planner = BootstrapDFSLearningPlanner (nn_model, beta, dropout,
                                            batch)  # FD: creates an instance of the class "BootstrapDFSLearningPlanner"
     # models_folder = output + '_models'
-    models_folder = 'trained_models/' + str('_NN_weights_' + output)
+    models_folder = 'trained_models_large/' + str('DepthFS_NN_weights_' + output)
     print(models_folder)
     if not os.path.exists (models_folder):
         os.makedirs (models_folder)
@@ -102,6 +111,7 @@ def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropo
         number_unsolved = 0
         current_unsolved_puzzles = {}
 
+        solved_puzzles = []
         for file, state in unsolved_puzzles.items ():  # FD: take each file and initial puzzle_state
             state.clear_path ()
             has_found_solution, new_bound = planner.lvn_search_budget_for_learning (state, state_budget[state])
@@ -109,6 +119,7 @@ def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropo
                 cost = planner.get_solution_depth ()
                 number_solved += 1
                 id_solved += 1
+                solved_puzzles += [file]
 
                 with open (join (output + '_puzzle_names_ordering_bootstrap'), 'a') as results_file:
                     results_file.write (file + ', ' + str (
@@ -133,6 +144,11 @@ def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropo
             planner.reset_budget ()  # FD: resets planner's budget to 1, and reset state's budget to 1
             for file, state in states.items ():
                 state_budget[state] = 1
+
+            outfile = open (filename_save_ordering, 'ab')
+            pickle.dump (solved_puzzles, outfile)
+            outfile.close ()
+
         else:
             planner.increase_budget ()  # FD: increases planner's budget by +1
             continue  # if there are 0 puzzles solved, loop back and try to solve all the puzzles again with an increased
@@ -144,6 +160,11 @@ def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropo
         # TODO: we should store: iteration number (id_batch), weights, puzzles solved in current iteration (P) -- _puzzle_names_ordering_bootstrap,
         #  puzzles solved so far (T), where P in T,
         #  puzzles yet to be solved (S\P).
+
+        # planner.preprocess_data_P ()
+        # compute_and_save_cosines(planner._x_P, planner._y_P, nn_model)
+
+
         # Note, if no puzzles get solved on iteration i, we increase the budget and loop back. so iteration i might have
         # "sub-iterations" (sub-iteration i1, i2, ..., ik) - maybe new puzzles get added in each sub-iteration.
         # if we have a sub-iteration, it means we did not solve any puzzles and P_new = {}. Also, it means we did not train
@@ -154,18 +175,17 @@ def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropo
         planner.preprocess_data ()
         error = 1
         num_iters = 0
-        # while error > epsilon:
-        while num_iters <= gradient_descent_steps:
+        while num_iters <= gradient_descent_steps:  # while error > epsilon:
             num_iters += 1
             error = planner.learn ()  # this trains the policy? -- if there were 0 solved puzzles, then how does the planner learn?
-            print ("error =", error, " epsilon =", epsilon)
+            print ("id_batch =", id_batch, " num_iters =", num_iters, " error =", error)
 
-        print ("filepath to save model", join (models_folder, 'model_' + output + "_" + str (id_batch)))
-        # planner.save_model (
-            # join (models_folder, 'model_' + output + "_" + str (id_batch)))  # FD: "id_batch" is the model id?
-        print("id_batch", id_batch)
-        planner.save_weights (
-            join (models_folder, 'model_' + output + "_" + str (id_batch) + ".h5"))  # FD: "id_batch" is the model id?
+        # print ("filepath to save model", join (models_folder, 'model_' + output + "_" + str (id_batch)))
+        # # planner.save_model (
+        #     # join (models_folder, 'model_' + output + "_" + str (id_batch)))  # FD: "id_batch" is the model id?
+        # print("id_batch", id_batch)
+        # planner.save_weights (
+        #     join (models_folder, 'model_' + output + "_" + str (id_batch) + ".h5"))  # FD: "id_batch" is the model id?
 
         id_batch += 1
         with open (join (output + '_puzzle_names_ordering_bootstrap'), 'a') as results_file:
@@ -174,7 +194,7 @@ def test_bootstrap_dfs_lvn_learning_planner(states, output, epsilon, beta, dropo
     print ("")
     print("finished test_bootstrap_dfs_lvn_learning_planner")
 
-    # planner.save_model (join (models_folder, 'model_' + output + "_" + str(id_batch)))  # FD: "id_batch" is the model id?
+    planner.save_model (join (models_folder, 'model_' + output + "_" + str(id_batch)))  # FD: "id_batch" is the model id?
 
 
 def main2():

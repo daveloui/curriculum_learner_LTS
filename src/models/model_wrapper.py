@@ -18,7 +18,9 @@ class KerasModel ():
             if two_headed_model:
                 self.model = TwoHeadedConvNet ((2, 2), 32, 4, loss_name)
             else:
+                print("here")
                 self.model = ConvNet ((2, 2), 32, 4, loss_name, beta, dropout, model_folder, model_name)
+                print("passed")
 
         if search_algorithm == 'AStar' or search_algorithm == 'GBFS':
             self.model = HeuristicConvNet ((2, 2), 32, 4)
@@ -26,6 +28,9 @@ class KerasModel ():
     def predict(self, x):
         with self.mutex:
             return self.model.predict (x)
+
+    def call(self, x):
+        return self.model.call(x)
 
     def train_with_memory(self, memory):
         print ("inside model wrapper train with memory")
@@ -39,8 +44,13 @@ class KerasModel ():
         print ("now saving nn_model")
         self.model.save_weights (filepath)
 
-    def new_save_model(self, filepath):
-        self.model.save(filepath)
+    def retrieve_output_layer_weights(self):
+        print ("now retrieve_output_layer_weights")
+        return self.model.retrieve_output_layer_weights()
+
+    def retrieve_output_layer_weights_temp(self):
+        print ("now retrieve_output_layer_weights_temp")
+        return self.model.retrieve_output_layer_weights_temp()
 
     def load_weights(self, filepath):
         self.model.load_weights (filepath).expect_partial ()
@@ -51,6 +61,15 @@ class KerasModel ():
     def batch_train_positive_examples(self, training_inputs, training_labels):
         print("calling batch_train_positive_examples")
         return self.model.batch_train_positive_examples(training_inputs, training_labels)
+
+    def clone_model(self):
+        return self.model.clone_model()
+
+    def load_weights(self, filepath):
+        return self.model.load_weights (filepath).expect_partial ()
+
+    def load_model(self, filepath):
+        self.model.load_model(filepath)
 
 
 class KerasManager (BaseManager):
