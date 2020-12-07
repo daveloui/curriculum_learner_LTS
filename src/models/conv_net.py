@@ -227,8 +227,8 @@ class ConvNet (tf.keras.Model):
         x = self.dense1 (x)
         outputs = self.dense2 (x)
         super (ConvNet, self).__init__ (inputs=inputs, outputs=outputs, name='')
-        print ("len(self.weights) =", len (self.weights))
-        print ("summary for model we use for training", self.summary ())
+        # print ("len(self.weights) =", len (self.weights))
+        # print ("summary for model we use for training", self.summary ())
 
         self.optimizer = tf.keras.optimizers.Adam (learning_rate=0.0001)  #0.0001
 
@@ -278,9 +278,10 @@ class ConvNet (tf.keras.Model):
             loss = self._loss_function.cross_entropy_loss (batch_actions, preds)
             print ("loss", loss)
         grads = tape.gradient (loss, self.trainable_variables)
-        last_grads = grads[-1].numpy ()
-        loss_val = loss.numpy ()
-        return last_grads, loss_val, grads
+
+        # print(type(grads), len(grads))
+        # loss_val = loss.numpy ()
+        return grads
 
     def train_with_memory(self, memory):
         # print ("inside convnet train_with_memory")
@@ -325,19 +326,14 @@ class ConvNet (tf.keras.Model):
         self.optimizer.apply_gradients (zip (grads_train, self.trainable_variables))
         return
 
-    def retrieve_output_layer_weights(self):
-        print("retrieve_output_layer_weights")
-        # output_weights = self.dense2.weights[0].numpy()
-        output_weights = self.dense2.weights[0].numpy()
-        return output_weights
+    def retrieve_layer_weights(self):
+        model_weights = self.weights
+        return model_weights
 
     def retrieve_output_layer_weights_temp(self):
         print("retrieve_output_layer_weights_temp")
         # output_weights = self.dense2.weights[0].numpy()
         output_weights = self.dense2.weights
-        print(type(output_weights))
-        print(output_weights)
-
         return output_weights
 
     def clone_model(self):

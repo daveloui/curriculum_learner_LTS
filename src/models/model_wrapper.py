@@ -44,13 +44,15 @@ class KerasModel ():
         print ("now saving nn_model")
         self.model.save_weights (filepath)
 
-    def retrieve_output_layer_weights(self):
+    def retrieve_layer_weights(self):
         print ("now retrieve_output_layer_weights")
-        return self.model.retrieve_output_layer_weights()
+        return self.model.retrieve_layer_weights()
+
 
     def retrieve_output_layer_weights_temp(self):
         print ("now retrieve_output_layer_weights_temp")
         return self.model.retrieve_output_layer_weights_temp()
+
 
     def load_weights(self, filepath):
         self.model.load_weights (filepath).expect_partial ()

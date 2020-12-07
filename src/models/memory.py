@@ -130,6 +130,13 @@ class MemoryV2 ():
             # TODO: added:
             self.trajectories_dict[puzzle_name] = trajectory_obj
 
+    def save_trajectories_dict(self):
+        new_dict = {}
+        for k, v in self.trajectories_dict.items():
+            states = v.get_states()
+            actions = v.get_actions()
+            new_dict[k] = [states, actions]
+
     def save_data(self):
         start = time.time ()
         filename = 'BFS_memory_' + self.puzzle_dims + '.pkl'

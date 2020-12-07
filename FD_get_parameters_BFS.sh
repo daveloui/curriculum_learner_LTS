@@ -10,5 +10,5 @@ output="output_test_witness_4x4/"
 
 output_exp="${output}${algorithm}-${loss}"
 model=${size_puzzle}-${domain_name}-${loss}
-sbatch --output="${output_exp}" --export=algorithm=${algorithm},model=${model},problem=${problems_dir},loss=${loss} FD_submit_experiment.sh
+sbatch --output="${output_exp}" --export=algorithm=${algorithm},model=${model},problem=${problems_dir},loss=${loss} FD_submit_experiment_BFS.sh
 echo "finished calling sbatch"

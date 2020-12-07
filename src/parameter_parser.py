@@ -70,8 +70,9 @@ def parameter_parser():
                          dest='batch_size',
                          help='Batch-size for training the NN.')
 
-
-
+    parser.add_argument ('--checkpoint', action='store_true', default=False,
+                         dest='checkpoint',
+                         help='Are we loading data from a checkpoint file?')
 
     parameters = parser.parse_args ()
 

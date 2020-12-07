@@ -11,8 +11,8 @@ np.random.seed (1)
 # random.seed (1)
 
 from compute_cosines import retrieve_batch_data_solved_puzzles, check_if_data_saved, \
-    retrieve_all_batch_images_actions, compute_cosines
-from debug import g
+    retrieve_all_batch_images_actions, compute_cosines, save_data_to_disk
+from debug import save_while_loop_state
 
 
 class ProblemNode:
@@ -251,6 +251,10 @@ class Bootstrap:
         if not os.path.exists (self._ordering_folder):
             os.makedirs (self._ordering_folder, exist_ok=True)
         print (os.path.abspath (self._ordering_folder))
+
+        self._cosine_data = []
+        self._dot_prod_data = []
+        self._dict_cos = {}
 
 
     def map_function(self, data):
@@ -530,45 +534,56 @@ class Bootstrap:
         # we will not need to recompute the solution trajectories after each trainign of theta
 
         # step 1: check if we have already stored the solution trajectories and images of all the puzzles
-        already_saved_data = check_if_data_saved (self._puzzle_dims)
-        print ("already_saved_data", already_saved_data)
+        # already_saved_data = check_if_data_saved (self._puzzle_dims)
+        # print ("already_saved_data", already_saved_data)
 
-        iteration = 1
-        number_solved = 0
-        total_expanded = 0
-        total_generated = 0
+        if not parameters.checkpoint:
+            print("not checkpointing program")
+            iteration = 1
+            total_expanded = 0
+            total_generated = 0
 
-        budget = self._initial_budget
-        memory = Memory ()
-        memory_v2 = MemoryV2 (self._trajectory_folder, self._puzzle_dims)  # added by FD
-        start = time.time ()
+            budget = self._initial_budget
+            memory = Memory ()
+            memory_v2 = MemoryV2 (self._trajectory_folder, self._puzzle_dims)  # added by FD
+            start = time.time ()
 
-        current_solved_puzzles = set ()
-        last_puzzle = list (self._states)[-1]  # self._states is a dictionary of puzzle_file_name, puzzle
+            current_solved_puzzles = set ()
+            last_puzzle = list (self._states)[-1]  # self._states is a dictionary of puzzle_file_name, puzzle
 
-        # TODO: only save a ordering if you solved all puzzles
-        ordering = []
+            # TODO: only save a ordering if you solved all puzzles
+            ordering = []
+            # if you did not solve any puzzles with current budget, then double the budget
+            # d = {}
+            # d[budget] = 1
+            start_while = time.time()
+            n_while = 0
 
-        # if you did not solve any puzzles with current budget, then double the budget
-        d = {}
-        d[budget] = 1
+        else:
+            print("checkpointing program")
+            # restore_while_loop_state() # TODO: only need to restore before while loop starts.
+            # #TODO: because: pretend that program ends at end of while loop iteration -- then we need to just go through the inside of loop, as we would have without breakpoint
 
-        start_while = time.time()
-        n_while = 0
+
+        t_cos = -1
         while len (current_solved_puzzles) < self._number_problems:
-            n_while += 1
 
+            n_while += 1
             at_least_one_got_solved = False
             number_solved = 0
             batch_problems = {}
+            for_loop_index = 0
 
             # loop-invariant: on each loop iteration, we process self._batch_size puzzles that we solve
             # with current budget and train the NN on solved instances self._gradient_descent_steps times
             # (on the batch of solved puzzles)
             # before the for-loop starts, batch_problems = {}, number_solved = 0, at_least_one_got_solved = False
 
-            # solved_batch = []
+            # TODO: we would open the for-loop checkpoint file here
+            # already_restored = restore_for_loop_state ()
+
             for name, state in self._states.items ():  # iterate through all the puzzles, try to solve however many you have with a current budget
+                for_loop_index += 1
                 # at the start of each for loop, batch_problems is either empty, or it contains exactly self._batch_size puzzles
                 # number_solved is either 0 or = the number of puzzles solved with the current budget
                 # at_least_one_got_solved is either still False (no puzzle got solved with current budget) or is True
@@ -592,33 +607,32 @@ class Bootstrap:
                     puzzle_name = result[4]
 
                     if has_found_solution:
-                        memory.add_trajectory (
-                            trajectory)  # stores trajectory object into a list (the list contains instances of the Trajectory class)
+                        memory.add_trajectory (trajectory)  # stores trajectory object into a list (the list contains instances of the Trajectory class)
                         memory_v2.add_trajectory (trajectory, puzzle_name)
-                        ordering += [puzzle_name]
 
                     if has_found_solution and puzzle_name not in current_solved_puzzles:
                         number_solved += 1
                         current_solved_puzzles.add (puzzle_name)
                         at_least_one_got_solved = True
-                        # solved_batch += [puzzle_name]
+                        ordering += [puzzle_name]
 
                         P += [puzzle_name]
                         n_P += 1
 
-                print(n_P, number_solved)
+                # assert n_P == number_solved
                 # TODO: before training, we compute the cosines data
                 if n_P > 0:
-                    batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles (P, memory_v2)
-                    print(batch_images_P.shape, " ", batch_actions_P.shape)
+                    t_cos += 1
+                    self._dict_cos[t_cos] = P
 
-                    # TODO: compute the cosines
-                    cos = compute_cosines (batch_images_P, batch_actions_P, nn_model, self._models_folder, parameters)
-                    # assert False
-                    # save_cos_to_disk(cos)
+                    batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles (P, memory_v2)
+
+                    cosine, dot_prod = compute_cosines (batch_images_P, batch_actions_P, nn_model, self._models_folder, parameters)
+                    self._cosine_data += [cosine]
+                    self._dot_prod_data += [dot_prod]
 
                 # FD: once you have added everything to memory, train:
-                nn_model_prev = nn_model
+                # nn_model_prev = nn_model
                 if memory.number_trajectories () > 0:  # if you have solved at least one puzzle with given budget, then:
                     # before the for loop starts, memory has at least 1 solution trajectory and we have not yet trained the NN with
                     # any of the puzzles solved with current budget and stored in memory
@@ -626,19 +640,27 @@ class Bootstrap:
                         loss = nn_model.train_with_memory (memory)
                         print('Loss: ', loss)
                     memory.clear ()  # clear memory
-                    nn_model.save_weights (join (self._models_folder, "pretrained_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
+                    nn_model.save_weights (join (self._models_folder, "i_th_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
 
-
-
-                # TODO:
-                # compute_cosines (nn_model_prev, nn_model)
-
-                batch_problems.clear ()
-                # at the end of the bigger for loop, batch_problems == {}
+                batch_problems.clear ()  # at the end of the bigger for loop, batch_problems == {}
                 # either we solved at least one puzzle with current budget, or 0 puzzles with current budget.
                 # if we did solve at east one of the self._batch_size puzzles puzzles in the batch, then we train the NN
                 # self._gradient_steps times with however many puzzles solved
                 print ("")
+
+                # if n_for % 50 == 0.0:
+                #     save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
+                #     save_data_to_disk (self._dot_prod_data,
+                #                        join (self._log_folder, "dot_prod_data_" + self._model_name))
+                #     save_data_to_disk (self._dict_cos,
+                #                        join (self._log_folder,
+                #                              "dict_times_puzzles_for_cosine_data_" + self._model_name))
+                #
+                #     nn_model.save_weights (join (self._models_folder,
+                #                                  "i_th_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () < 0
+                #     save_for_loop_state (n_while, for_loop_index, number_solved, at_least_one_got_solved, iteration,
+                #                           total_expanded, total_generated, budget, current_solved_puzzles, last_puzzle,
+                #                           ordering, self._puzzle_dims)
 
 
             end = time.time ()
@@ -653,38 +675,13 @@ class Bootstrap:
                                                                                          end - start)))
                 results_file.write ('\n')
 
-            # TODO: retrieve the batch images and batch actions of the set P and the set S\P
-            # if number_solved > 0:
-                # if not already_saved_data:
-                #     print ("not already_saved_data, we store the data")
-                #     batch_images_P, batch_actions_P = save_or_retrieve_batch_data_solved_puzzles (solved_batch, memory_v2, self._puzzle_dims)
-                # else:
-                #     dict_batch_images_and_actions = store_or_retrieve_batch_data_solved_puzzles (solved_batch,
-                #                                                                                  memory_v2,
-                #                                                                                  self._puzzle_dims,
-                #                                                                                  False)
-                #     print ("passed store_or_retrieve_batch_data_solved_puzzles", len (dict_batch_images_and_actions))
-                #
-                #     _, _, batch_images_P, batch_actions_P = retrieve_all_batch_images_actions (
-                #         dict_batch_images_and_actions, solved_batch, "P_new")
-                #     print ("passed retrieve_all_batch_images_actions on P")
-                #
-                #     batch_images_all_minus_P, batch_actions_all_minus_P, batch_images_P, batch_actions_P = \
-                #         retrieve_all_batch_images_actions (dict_batch_images_and_actions, solved_batch, "S_minus_P")
-                #     print ("passed retrieve_all_batch_images_actions on S\P")
-
-                # # TODO: compute the cosines
-                # compute_cosines(batch_images_P, nn_model)
-                # compute_cosines(batch_images_all_minus_P, nn_model)
-
-
             print ('Number solved: ', number_solved, ' Number still to solve', self._number_problems -
                    len (current_solved_puzzles))
-            d[budget] += 1
+            # d[budget] += 1
             if number_solved == 0:
                 budget *= 2
                 print ('Budget: ', budget)
-                d[budget] = 1
+                # d[budget] = 1
                 continue
 
             iteration += 1
@@ -704,19 +701,42 @@ class Bootstrap:
             print("time for while-loop iter =", end_while - start_while)
             print("")
 
-        nn_model.save_weights(join(self._models_folder, "pretrained_weights.h5"))
-        # nn_model.save_weights (join (self._models_folder, 'model_weights'))
+            # TODO: add breakpoint here -- save --  in current while loop iteration:
+            if parameters.checkpoint and n_while % 50 == 0.0:
+                save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
+                save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name))
+                save_data_to_disk (self._dict_cos,
+                                   join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
+
+                nn_model.save_weights (join (self._models_folder,
+                                             "checkpointed_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () < 0
+
+                save_while_loop_state (n_while, iteration, total_expanded, total_generated, budget, start,
+                                             current_solved_puzzles, last_puzzle, ordering, start_while,
+                                             self._puzzle_dims)
+
+                if memory.number_trajectories () == 0:  #TODO: nothing tosave, get rid of this
+                    memory.save()
+
+                # save the data we have so far
+                if at_least_one_got_solved: #TODO: not needed. If we solved at least one in current iteration, the memory_v2 got already saved
+                    # TODO: if we solved none in current iteration, then memory_v2 got saved in previous iteration. Nothing new to save in current iter anyway
+                    memory_v2.save_data ()  # not need this -- you can reinitialize the memory_v2 to be empty, when load checkpoint
+                    # because we only need puzzles solved in current while-loop iteration, not all puzzles solved in all iterations!
+
+            #     # TODO !!!! save_data_to_disk must use append mode, not write mode
+
+        save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
+        save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name))
+        save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
+
+        nn_model.save_weights (join(self._models_folder, "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
 
         memory_v2.save_data ()  # FD
         ordering_filename = 'Ordering_BFS_' + str(self._puzzle_dims)
         ordering_filename = join (self._ordering_folder + ordering_filename)
         ordering = np.array (ordering)
         np.save (ordering_filename, ordering)
-
-    def _debug_code(self):
-        print("inside debug_code")
-        g()
-        print("called g")
 
     def _solve_uniform(self, planner, nn_model):
         iteration = 1
@@ -782,7 +802,6 @@ class Bootstrap:
             self._solve_gbs (planner, nn_model)
         elif self._scheduler == 'online':
             self._solve_uniform_online (planner, nn_model, parameters)
-            self._debug_code ()
         elif self._scheduler == 'pgbs':
             self._parallel_gbs (planner, nn_model)
         else:

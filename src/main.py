@@ -162,6 +162,16 @@ def main():
     with KerasManager () as manager:
 
         nn_model = manager.KerasModel ()
+        # If you are not loading data, you create the nn_folder.
+        # Else, if you are loading data from a previous experiment, checkpoint_folder == 'path_to_save_ordering_and_model'
+        if parameters.checkpoint:
+            nn_folder = "trained_models_large/Breadth_FS" + parameters.puzzle_dims + "-" + parameters.model_name
+            path_to_retrieve_NN = os.path.abspath (nn_folder)
+            print(path_to_retrieve_NN)
+            new_model.load_weights (join (path_to_retrieve_NN, "checkpointed_weights.h5"))
+            print("passed getting NN weight checkpoint")
+        # TODO: when you are or are not loading files, save sets T and S (or names of puzzles in T and S), or positions of these puzzles
+
         bootstrap = None
 
         if parameters.learning_mode:
