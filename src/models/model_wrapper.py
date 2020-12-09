@@ -18,9 +18,7 @@ class KerasModel ():
             if two_headed_model:
                 self.model = TwoHeadedConvNet ((2, 2), 32, 4, loss_name)
             else:
-                print("here")
                 self.model = ConvNet ((2, 2), 32, 4, loss_name, beta, dropout, model_folder, model_name)
-                print("passed")
 
         if search_algorithm == 'AStar' or search_algorithm == 'GBFS':
             self.model = HeuristicConvNet ((2, 2), 32, 4)

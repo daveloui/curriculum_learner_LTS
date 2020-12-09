@@ -111,6 +111,7 @@ class MemoryV2 ():
         self.memory_version = 'v2'
         self.path_to_save_data = path_to_save_data
         self.puzzle_dims = puzzle_dims
+        self.dict_images_actions = {}
 
         # TODO: added:
         self.trajectories_dict = {}
@@ -149,4 +150,14 @@ class MemoryV2 ():
         # print("finished saving data")
         end = time.time ()
         print ("time to save data", end - start)
+
+    def store_puzzle_images_actions(self, puzzle_name, images_p_array, actions_p_array):
+        self.dict_images_actions[puzzle_name] = [images_p_array, actions_p_array]
+
+    def retrieve_puzzle_images(self, puzzle_name):
+        return self.dict_images_actions[puzzle_name][0]
+
+    def retrieve_labels(self, puzzle_name):
+        return self.dict_images_actions[puzzle_name][1]
+
 

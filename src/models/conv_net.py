@@ -276,7 +276,6 @@ class ConvNet (tf.keras.Model):
             preds = self.dense2 (x)
             # labels = self.get_label (batch_actions)
             loss = self._loss_function.cross_entropy_loss (batch_actions, preds)
-            print ("loss", loss)
         grads = tape.gradient (loss, self.trainable_variables)
 
         # print(type(grads), len(grads))
@@ -295,7 +294,6 @@ class ConvNet (tf.keras.Model):
 
             self.optimizer.apply_gradients (zip (grads, self.trainable_weights))
             losses.append (loss)
-
         return np.mean (losses)
 
     def train(self, states, y):

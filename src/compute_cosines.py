@@ -3,8 +3,10 @@ import tensorflow as tf
 import os
 from os.path import join
 import pickle
+import math
 from tensorflow import keras
 from tensorflow.keras import layers
+from concurrent.futures.process import ProcessPoolExecutor
 
 from models.model_wrapper import KerasManager, KerasModel
 from models.temp_model import TempConvNet #temp_model,
@@ -169,6 +171,7 @@ def retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2):
     # TODO: should I save the np.array of images or data that can be used to gnerate the np.arrays?
     all_images_list = []
     all_actions = []
+
     # d = {}
     for puzzle_name in puzzles_list:
         images_p = []
@@ -180,11 +183,15 @@ def retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2):
             assert isinstance (single_img, np.ndarray)
             images_p.append (single_img)  # a list of np.arrays
         images_p = np.array (images_p, dtype=object)  # convert list of np.arrays to an array
+        images_p = np.asarray (images_p).astype ('float32')
         assert isinstance (images_p, np.ndarray)
+
+        memory_v2.store_puzzle_images_actions (puzzle_name, images_p, actions_one_hot.numpy ())  # TODO: to be used by find min
         # d[puzzle_name] = [images_p, actions_one_hot.numpy ()]
 
         # print("images_p.shape", images_p.shape)
-        # print(actions_one_hot.shape)
+        # print("actions_one_hot.shape", actions_one_hot.shape)
+        # assert False
         # print("")
 
         all_images_list.append (images_p)  # list of sublists; each sublists contain np.arrays
@@ -264,3 +271,53 @@ def compute_cosines(batch_images_P, batch_actions_P, theta_model, models_folder,
 
 def save_data_to_disk(data, filename):
     np.save(filename, data)
+
+
+def findMin_helper_function_2 (results):  # results = (puzzle_name, log_frac, states_list, actions_list)
+    min_val = float ('inf')
+    argmin_p = None
+    for result in results:
+        new_puzzle_name = result[0]
+        frac = result[1]
+        if frac < min_val:
+            min_val = frac
+            argmin_p = new_puzzle_name
+    return argmin_p
+
+
+def findMin_helper_function_1 (data):
+    # Note, the trajectories contain the following member variables: states, ..., solution_cost
+    theta_model = data[0]
+    puzzle_name = data[1]
+    memory_model = data[2]
+    loss_func = data[3]
+
+    state_images = memory_model.retrieve_puzzle_images(puzzle_name) # list of np.arrays
+    log_d = math.log(state_images.shape[0])
+    labels = memory_model.retrieve_labels(puzzle_name) # np.array
+
+    # Way #1:
+    # action_distribution_log, _ = theta_model.predict (state_images)  #np.array (state_images))
+    # elem_wise_mult = np.multiply(labels, action_distribution_log)
+    # log_probs = np.sum (elem_wise_mult) # this is the overall log_prob of solving the puzzle given current weights
+    # print("log_probs", log_probs)
+
+    # Way #2
+    _, _, logits_preds = theta_model.call (state_images)
+    CEL = logits_preds.shape[0] * loss_func(labels, logits_preds)
+    # print ("CEL loss", CEL)
+
+    log_frac = log_d + CEL  # if uing way #1 --> log_frac = log_d - log_probs
+    return puzzle_name, log_frac
+
+
+def find_minimum(P, theta_model, memory_model, ncpus, chunk_size):
+    loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
+
+    with ProcessPoolExecutor (max_workers=ncpus) as executor:
+        args = ((theta_model, puzzle_name, memory_model, loss_func) for puzzle_name in P)
+        results = executor.map (findMin_helper_function_1, args, chunksize=chunk_size)
+
+    argmin_p = findMin_helper_function_2 (results)
+    assert argmin_p is not None
+    return argmin_p

@@ -40,6 +40,10 @@ def parameter_parser():
     parser.add_argument ('-mix', action='store', dest='mix_epsilon', default='0.0',
                          help='Mixture with a uniform policy')
 
+    parser.add_argument ('-use_epsilon', action='store', default='0',
+                         dest='use_epsilon',
+                         help='Threshold for training the NN -- if True, we train the NN as long as the loss < 0.1')
+
     parser.add_argument ('--default-heuristic', action='store_true', default=False,
                          dest='use_heuristic',
                          help='Use the default heuristic as input')
@@ -61,6 +65,7 @@ def parameter_parser():
                          help='Train as neural model out of the instances from the problem folder')
 
     # new parameters added:
+
     parser.add_argument ('-dropout', action='store_true', default='1.0',
                          dest='dropout_rate',
                          help='The dropout rate is set to 1.0 (for all methods), which means that no dropout is used. '
@@ -73,6 +78,8 @@ def parameter_parser():
     parser.add_argument ('--checkpoint', action='store_true', default=False,
                          dest='checkpoint',
                          help='Are we loading data from a checkpoint file?')
+
+
 
     parameters = parser.parse_args ()
 

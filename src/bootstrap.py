@@ -11,8 +11,8 @@ np.random.seed (1)
 # random.seed (1)
 
 from compute_cosines import retrieve_batch_data_solved_puzzles, check_if_data_saved, \
-    retrieve_all_batch_images_actions, compute_cosines, save_data_to_disk
-from debug import save_while_loop_state
+    retrieve_all_batch_images_actions, compute_cosines, save_data_to_disk, find_minimum
+from save_while_for_loop_states import save_while_loop_state
 
 
 class ProblemNode:
@@ -214,7 +214,7 @@ class GBS:
 
 
 class Bootstrap:
-    def __init__(self, states, output, scheduler, ncpus=1, initial_budget=2000, gradient_steps=10):
+    def __init__(self, states, output, scheduler, use_epsilon=False, ncpus=1, initial_budget=2000, gradient_steps=10):
         self._states = states
         self._model_name = output
         self._number_problems = len (states)
@@ -224,22 +224,20 @@ class Bootstrap:
         self._gradient_steps = gradient_steps
         #         self._k = ncpus * 3
         self._batch_size = 32
-
         self._kmax = 10
-
         self._scheduler = scheduler
-
-        self._log_folder = 'logs_large/'
-        self._models_folder = 'trained_models_large/' 'BreadthFS_' + self._model_name
 
         self._all_puzzle_names = set (states.keys ())  ## FD what do we use this for?
         self._puzzle_dims = self._model_name.split ('-')[0]  # self._model_name has the form
         # '<puzzle dimension>-<problem domain>-<loss name>'
 
-        self._trajectory_folder = os.path.abspath (os.getcwd () + '/solved_puzzles/')
-        # print("self._trajectory_folder", self._trajectory_folder)
-        if not os.path.exists (self._trajectory_folder):
-            os.makedirs (self._trajectory_folder)
+        self._log_folder = 'logs_large/' + self._puzzle_dims + "_use_epsilon=" + str(use_epsilon)
+        self._models_folder = 'trained_models_large/' 'BreadthFS_' + self._model_name + "_" + "use_epsilon=" + str(use_epsilon)
+
+        # self._trajectory_folder = os.path.abspath (os.getcwd () + '/solved_puzzles/' + "use_epsilon=" + str(use_epsilon))
+        # # print("self._trajectory_folder", self._trajectory_folder)
+        # if not os.path.exists (self._trajectory_folder):
+        #     os.makedirs (self._trajectory_folder)
 
         if not os.path.exists (self._models_folder):
             os.makedirs (self._models_folder)
@@ -247,15 +245,14 @@ class Bootstrap:
         if not os.path.exists (self._log_folder):
             os.makedirs (self._log_folder)
 
-        self._ordering_folder = 'solved_puzzles/' + str("puzzles_" + self._puzzle_dims + "/")
+        self._ordering_folder = 'solved_puzzles/' + str("puzzles_" + self._puzzle_dims + "_use_epsilon=" + str(use_epsilon) + '/')
         if not os.path.exists (self._ordering_folder):
             os.makedirs (self._ordering_folder, exist_ok=True)
-        print (os.path.abspath (self._ordering_folder))
+        print ("os.path.abspath (self._ordering_folder)=", os.path.abspath (self._ordering_folder))
 
         self._cosine_data = []
         self._dot_prod_data = []
         self._dict_cos = {}
-
 
     def map_function(self, data):
         gbs = data[0]
@@ -339,7 +336,7 @@ class Bootstrap:
                 start_segment = end
 
                 # logging details of the latest iteration
-                with open (join (self._log_folder + 'training_bootstrap_' + self._model_name), 'a') as results_file:
+                with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
                     results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                        problems_solved_iteration,
                                                                                        self._number_problems - number_problems_solved,
@@ -500,7 +497,7 @@ class Bootstrap:
                 start_segment = end
 
                 # logging details of the latest iteration
-                with open (join (self._log_folder + 'training_bootstrap_' + self._model_name), 'a') as results_file:
+                with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
                     results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                        number_solved,
                                                                                        self._number_problems - len (
@@ -519,7 +516,7 @@ class Bootstrap:
             # time required in this iteration of the algorithm
             end = time.time ()
             # logging details of the latest iteration
-            with open (join (self._log_folder + 'training_bootstrap_' + self._model_name), 'a') as results_file:
+            with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
                 results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                    number_solved,
                                                                                    self._number_problems - len (
@@ -530,6 +527,9 @@ class Bootstrap:
                 results_file.write ('\n')
 
     def _solve_uniform_online(self, planner, nn_model, parameters):
+
+        print("parameters.use_epsilon", parameters.use_epsilon)
+
         # tODO: assumption: the solution of each puzzle is unique -- therefore, each time we train the NN and then solve the puzzles again,
         # we will not need to recompute the solution trajectories after each trainign of theta
 
@@ -545,7 +545,7 @@ class Bootstrap:
 
             budget = self._initial_budget
             memory = Memory ()
-            memory_v2 = MemoryV2 (self._trajectory_folder, self._puzzle_dims)  # added by FD
+            memory_v2 = MemoryV2 (self._ordering_folder, self._puzzle_dims)  # added by FD
             start = time.time ()
 
             current_solved_puzzles = set ()
@@ -614,57 +614,60 @@ class Bootstrap:
                         number_solved += 1
                         current_solved_puzzles.add (puzzle_name)
                         at_least_one_got_solved = True
-                        ordering += [puzzle_name]
 
-                        P += [puzzle_name]
+                        P += [puzzle_name]  # only contains the names of puzzles that are recently solved
+                        # if a puzzle was solved before (under different weights, or a different budget), then we do not
+                        # add the puzzle to P
                         n_P += 1
 
-                # assert n_P == number_solved
-                # TODO: before training, we compute the cosines data
-                if n_P > 0:
-                    t_cos += 1
-                    self._dict_cos[t_cos] = P
+            # assert n_P == number_solved
+            # before training, we compute the cosines data
+            if n_P > 0:
+                # we only compute the cosine data with puzzles that are newly solved (with current weights and current budget).
+                # I think this is fine. Otherwise, if P += [puzzle_name] was in the first "if statement", then we would be
+                # computing the cosines of all puzzles (whether they were solved previously or not)
+                t_cos += 1
+                batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles (P, memory_v2)  # also stores
+                # images_P and actions_P in dictionary
+                # TODO: should we get rid of those saved? I think so! Because after training, we might have new actions/states
+                cosine, dot_prod = compute_cosines (batch_images_P, batch_actions_P, nn_model, self._models_folder, parameters)
+                self._cosine_data += [cosine]
+                self._dot_prod_data += [dot_prod]
 
-                    batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles (P, memory_v2)
+                argmin_p = find_minimum(P, nn_model, memory_v2, self._ncpus, 19)
+                print("argmin_p", argmin_p)
+                ordering += [argmin_p]
+                self._dict_cos[t_cos] = argmin_p
 
-                    cosine, dot_prod = compute_cosines (batch_images_P, batch_actions_P, nn_model, self._models_folder, parameters)
-                    self._cosine_data += [cosine]
-                    self._dot_prod_data += [dot_prod]
+            # FD: once you have added everything to memory, train:
+            # nn_model_prev = nn_model
 
-                # FD: once you have added everything to memory, train:
-                # nn_model_prev = nn_model
-                if memory.number_trajectories () > 0:  # if you have solved at least one puzzle with given budget, then:
-                    # before the for loop starts, memory has at least 1 solution trajectory and we have not yet trained the NN with
-                    # any of the puzzles solved with current budget and stored in memory
-                    for _ in range (self._gradient_steps):  # train the NN g times
+            if memory.number_trajectories () > 0:  # if you have solved at least one puzzle with given budget, then:
+                # before the for loop starts, memory has at least 1 solution trajectory and we have not yet trained the NN with
+                # any of the puzzles solved with current budget and stored in memory
+                if bool(parameters.use_epsilon):
+                    loss = 1000000
+                    epsilon = 0.1
+                    while loss > epsilon:
                         loss = nn_model.train_with_memory (memory)
                         print('Loss: ', loss)
-                    memory.clear ()  # clear memory
-                    nn_model.save_weights (join (self._models_folder, "i_th_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
+                else:
+                    for _ in range (self._gradient_steps):
+                        loss = nn_model.train_with_memory (memory)
+                        print ('Loss: ', loss)
 
-                batch_problems.clear ()  # at the end of the bigger for loop, batch_problems == {}
-                # either we solved at least one puzzle with current budget, or 0 puzzles with current budget.
-                # if we did solve at east one of the self._batch_size puzzles puzzles in the batch, then we train the NN
-                # self._gradient_steps times with however many puzzles solved
-                print ("")
+                memory.clear ()  # clear memory
+                nn_model.save_weights (join (self._models_folder, "i_th_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
 
-                # if n_for % 50 == 0.0:
-                #     save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
-                #     save_data_to_disk (self._dot_prod_data,
-                #                        join (self._log_folder, "dot_prod_data_" + self._model_name))
-                #     save_data_to_disk (self._dict_cos,
-                #                        join (self._log_folder,
-                #                              "dict_times_puzzles_for_cosine_data_" + self._model_name))
-                #
-                #     nn_model.save_weights (join (self._models_folder,
-                #                                  "i_th_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () < 0
-                #     save_for_loop_state (n_while, for_loop_index, number_solved, at_least_one_got_solved, iteration,
-                #                           total_expanded, total_generated, budget, current_solved_puzzles, last_puzzle,
-                #                           ordering, self._puzzle_dims)
+            batch_problems.clear ()  # at the end of the bigger for loop, batch_problems == {}
+            # either we solved at least one puzzle with current budget, or 0 puzzles with current budget.
+            # if we did solve at east one of the self._batch_size puzzles puzzles in the batch, then we train the NN
+            # self._gradient_steps times with however many puzzles solved
+            print ("")
 
 
             end = time.time ()
-            with open (join (self._log_folder + 'training_bootstrap_' + self._model_name), 'a') as results_file:
+            with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
                 results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                          number_solved,
                                                                                          self._number_problems - len (
@@ -687,7 +690,7 @@ class Bootstrap:
             iteration += 1
 
             unsolved_puzzles = self._all_puzzle_names.difference (current_solved_puzzles)
-            with open (join (self._log_folder + 'unsolved_puzzles_' + self._model_name), 'a') as file:
+            with open (join (self._log_folder + '_unsolved_puzzles_' + self._model_name), 'a') as file:
                 for puzzle in unsolved_puzzles:  # current_solved_puzzles:
                     file.write ("%s," % puzzle)
                 file.write ('\n')
@@ -705,25 +708,19 @@ class Bootstrap:
             if parameters.checkpoint and n_while % 50 == 0.0:
                 save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
                 save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name))
-                save_data_to_disk (self._dict_cos,
-                                   join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
-
+                save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
                 nn_model.save_weights (join (self._models_folder,
                                              "checkpointed_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () < 0
-
                 save_while_loop_state (n_while, iteration, total_expanded, total_generated, budget, start,
                                              current_solved_puzzles, last_puzzle, ordering, start_while,
                                              self._puzzle_dims)
-
                 if memory.number_trajectories () == 0:  #TODO: nothing tosave, get rid of this
                     memory.save()
-
                 # save the data we have so far
                 if at_least_one_got_solved: #TODO: not needed. If we solved at least one in current iteration, the memory_v2 got already saved
                     # TODO: if we solved none in current iteration, then memory_v2 got saved in previous iteration. Nothing new to save in current iter anyway
                     memory_v2.save_data ()  # not need this -- you can reinitialize the memory_v2 to be empty, when load checkpoint
                     # because we only need puzzles solved in current while-loop iteration, not all puzzles solved in all iterations!
-
             #     # TODO !!!! save_data_to_disk must use append mode, not write mode
 
         save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
@@ -771,7 +768,7 @@ class Bootstrap:
                     current_solved_puzzles.add (puzzle_name)
 
             end = time.time ()
-            with open (join (self._log_folder + 'training_bootstrap_' + self._model_name), 'a') as results_file:
+            with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
                 results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                          number_solved,
                                                                                          self._number_problems - len (

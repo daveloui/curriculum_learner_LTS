@@ -250,7 +250,6 @@ class BFSLevin ():
         # print("actions", actions)
         # print("solution_costs", solution_costs)
         # assert False
-        # # for debug
 
         return Trajectory (states, actions, solution_costs, expanded, math.exp (tree_node.get_p ()))
 
