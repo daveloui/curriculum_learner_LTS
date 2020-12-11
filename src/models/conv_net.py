@@ -267,6 +267,7 @@ class ConvNet (tf.keras.Model):
         return self.cross_entropy_loss (y, logits)
 
     def get_gradients_from_batch(self, batch_training_data, batch_actions):
+        print("inside get_gradients_from_batch")
         with tf.GradientTape () as tape:
             tape.watch (self.trainable_variables)
             x = self.conv1 (batch_training_data)
@@ -277,9 +278,9 @@ class ConvNet (tf.keras.Model):
             # labels = self.get_label (batch_actions)
             loss = self._loss_function.cross_entropy_loss (batch_actions, preds)
         grads = tape.gradient (loss, self.trainable_variables)
-
         # print(type(grads), len(grads))
         # loss_val = loss.numpy ()
+        print("gonna return grads", grads)
         return grads
 
     def train_with_memory(self, memory):

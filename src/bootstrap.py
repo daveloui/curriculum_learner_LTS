@@ -11,7 +11,7 @@ np.random.seed (1)
 # random.seed (1)
 
 from compute_cosines import retrieve_batch_data_solved_puzzles, check_if_data_saved, \
-    retrieve_all_batch_images_actions, compute_cosines, save_data_to_disk, find_minimum
+    retrieve_all_batch_images_actions, compute_cosines, save_data_to_disk, find_minimum, find_argmax
 from save_while_for_loop_states import save_while_loop_state
 
 
@@ -215,6 +215,7 @@ class GBS:
 
 class Bootstrap:
     def __init__(self, states, output, scheduler, use_epsilon=False, ncpus=1, initial_budget=2000, gradient_steps=10):
+
         self._states = states
         self._model_name = output
         self._number_problems = len (states)
@@ -232,23 +233,17 @@ class Bootstrap:
         # '<puzzle dimension>-<problem domain>-<loss name>'
 
         self._log_folder = 'logs_large/' + self._puzzle_dims + "_use_epsilon=" + str(use_epsilon)
-        self._models_folder = 'trained_models_large/' 'BreadthFS_' + self._model_name + "_" + "use_epsilon=" + str(use_epsilon)
-
-        # self._trajectory_folder = os.path.abspath (os.getcwd () + '/solved_puzzles/' + "use_epsilon=" + str(use_epsilon))
-        # # print("self._trajectory_folder", self._trajectory_folder)
-        # if not os.path.exists (self._trajectory_folder):
-        #     os.makedirs (self._trajectory_folder)
+        self._models_folder = 'trained_models_large/BreadthFS_' + self._model_name + "_" + "use_epsilon=" + str(use_epsilon)
+        self._ordering_folder = 'solved_puzzles/puzzles_' + self._puzzle_dims + "_use_epsilon=" + str (use_epsilon)
 
         if not os.path.exists (self._models_folder):
-            os.makedirs (self._models_folder)
+            os.makedirs (self._models_folder, exist_ok=True)
 
         if not os.path.exists (self._log_folder):
-            os.makedirs (self._log_folder)
+            os.makedirs (self._log_folder, exist_ok=True)
 
-        self._ordering_folder = 'solved_puzzles/' + str("puzzles_" + self._puzzle_dims + "_use_epsilon=" + str(use_epsilon) + '/')
         if not os.path.exists (self._ordering_folder):
             os.makedirs (self._ordering_folder, exist_ok=True)
-        print ("os.path.abspath (self._ordering_folder)=", os.path.abspath (self._ordering_folder))
 
         self._cosine_data = []
         self._dot_prod_data = []
@@ -336,7 +331,7 @@ class Bootstrap:
                 start_segment = end
 
                 # logging details of the latest iteration
-                with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
+                with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
                     results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                        problems_solved_iteration,
                                                                                        self._number_problems - number_problems_solved,
@@ -497,7 +492,7 @@ class Bootstrap:
                 start_segment = end
 
                 # logging details of the latest iteration
-                with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
+                with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
                     results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                        number_solved,
                                                                                        self._number_problems - len (
@@ -516,7 +511,7 @@ class Bootstrap:
             # time required in this iteration of the algorithm
             end = time.time ()
             # logging details of the latest iteration
-            with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
+            with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
                 results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                    number_solved,
                                                                                    self._number_problems - len (
@@ -527,8 +522,10 @@ class Bootstrap:
                 results_file.write ('\n')
 
     def _solve_uniform_online(self, planner, nn_model, parameters):
-
-        print("parameters.use_epsilon", parameters.use_epsilon)
+        print("inside _solve_uniform_online")
+        use_epsilon = bool(int(parameters.use_epsilon))
+        print("use_epsilon =", use_epsilon, " type(use_epsilon) =", type(use_epsilon))
+        print("")
 
         # tODO: assumption: the solution of each puzzle is unique -- therefore, each time we train the NN and then solve the puzzles again,
         # we will not need to recompute the solution trajectories after each trainign of theta
@@ -563,7 +560,6 @@ class Bootstrap:
             print("checkpointing program")
             # restore_while_loop_state() # TODO: only need to restore before while loop starts.
             # #TODO: because: pretend that program ends at end of while loop iteration -- then we need to just go through the inside of loop, as we would have without breakpoint
-
 
         t_cos = -1
         while len (current_solved_puzzles) < self._number_problems:
@@ -630,14 +626,18 @@ class Bootstrap:
                 batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles (P, memory_v2)  # also stores
                 # images_P and actions_P in dictionary
                 # TODO: should we get rid of those saved? I think so! Because after training, we might have new actions/states
-                cosine, dot_prod = compute_cosines (batch_images_P, batch_actions_P, nn_model, self._models_folder, parameters)
+                cosine, dot_prod, theta_diff = compute_cosines (batch_images_P, batch_actions_P, nn_model, self._models_folder, parameters)
                 self._cosine_data += [cosine]
                 self._dot_prod_data += [dot_prod]
 
-                argmin_p = find_minimum(P, nn_model, memory_v2, self._ncpus, 19)
-                print("argmin_p", argmin_p)
-                ordering += [argmin_p]
-                self._dict_cos[t_cos] = argmin_p
+                argmax_p = find_argmax(P, nn_model, theta_diff, memory_v2, self._ncpus, 19)
+                print("argmax", argmax_p)
+                # needs to know theta_n, theta_i, grads_{theta_i}cost(argmax_p)
+
+                # argmin_p = find_minimum(P, nn_model, memory_v2, self._ncpus, 19)
+                # print("argmin_p", argmin_p)
+                # ordering += [argmin_p]
+                # self._dict_cos[t_cos] = argmin_p
 
             # FD: once you have added everything to memory, train:
             # nn_model_prev = nn_model
@@ -645,7 +645,7 @@ class Bootstrap:
             if memory.number_trajectories () > 0:  # if you have solved at least one puzzle with given budget, then:
                 # before the for loop starts, memory has at least 1 solution trajectory and we have not yet trained the NN with
                 # any of the puzzles solved with current budget and stored in memory
-                if bool(parameters.use_epsilon):
+                if use_epsilon:
                     loss = 1000000
                     epsilon = 0.1
                     while loss > epsilon:
@@ -667,7 +667,7 @@ class Bootstrap:
 
 
             end = time.time ()
-            with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
+            with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
                 results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                          number_solved,
                                                                                          self._number_problems - len (
@@ -690,7 +690,7 @@ class Bootstrap:
             iteration += 1
 
             unsolved_puzzles = self._all_puzzle_names.difference (current_solved_puzzles)
-            with open (join (self._log_folder + '_unsolved_puzzles_' + self._model_name), 'a') as file:
+            with open (join (self._log_folder, 'unsolved_puzzles_' + self._model_name), 'a') as file:
                 for puzzle in unsolved_puzzles:  # current_solved_puzzles:
                     file.write ("%s," % puzzle)
                 file.write ('\n')
@@ -731,7 +731,7 @@ class Bootstrap:
 
         memory_v2.save_data ()  # FD
         ordering_filename = 'Ordering_BFS_' + str(self._puzzle_dims)
-        ordering_filename = join (self._ordering_folder + ordering_filename)
+        ordering_filename = join (self._ordering_folder, ordering_filename)
         ordering = np.array (ordering)
         np.save (ordering_filename, ordering)
 
@@ -768,7 +768,7 @@ class Bootstrap:
                     current_solved_puzzles.add (puzzle_name)
 
             end = time.time ()
-            with open (join (self._log_folder + '_training_bootstrap_' + self._model_name), 'a') as results_file:
+            with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
                 results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
                                                                                          number_solved,
                                                                                          self._number_problems - len (

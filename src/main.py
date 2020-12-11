@@ -176,7 +176,7 @@ def main():
 
         if parameters.learning_mode:
             bootstrap = Bootstrap (states, parameters.model_name,
-                                   parameters.scheduler, parameters.use_epsilon,
+                                   parameters.scheduler, bool(int(parameters.use_epsilon)),
                                    ncpus=ncpus,
                                    initial_budget=int (parameters.search_budget),
                                    gradient_steps=int (parameters.gradient_steps))

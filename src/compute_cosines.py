@@ -213,19 +213,34 @@ def map_zero_denom (dot_prod_p_vs_T):
     return cosine
 
 
-def compute_and_save_cosines_helper_func (theta_diff, grads_P):
+def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="cosine_and_dot_prod"):
+    print("inside compute_and_save_cosines_helper_func")
     l_theta_diff = []
     l_grads_P = []
     for i, tensor in enumerate(theta_diff):
+        print("tensor.shape", tensor.shape)
+        print("grads_P[i].shape", grads_P[i].shape)
         assert tensor.shape == grads_P[i].shape
+        print("passed assert")
         l_theta_diff.append(tf.keras.backend.flatten(tensor))
         l_grads_P.append(tf.keras.backend.flatten(grads_P[i]))
 
+    print("finished loop")
+    print("len(l_theta_diff)", len(l_theta_diff))
     theta_diff = tf.concat (l_theta_diff, axis=0)
+    print("f")
     grads_P = tf.concat (l_grads_P, axis=0)
-    assert theta_diff.shape == grads_P.shape
+    print("passed concat")
+    print("theta_diff.shape", theta_diff.shape)
+    print("grads_P.shape", grads_P.shape)
+    assert theta_diff.shape[0] == grads_P.shape
+    print("passed second assert")
 
-    dot_prod = tf.tensordot (theta_diff, grads_P, 1).numpy()  # tf.reduce_sum(tf.multiply(a, b))
+    dot_prod = tf.tensordot (theta_diff, grads_P, 1).numpy ()  # tf.reduce_sum(tf.multiply(a, b))
+    print("passed tensordot")
+    if label == "only_dot_prod":
+        print("gonna return fot_prod", dot_prod)
+        return dot_prod
 
     theta_diff_l2 = tf.norm (theta_diff, ord=2)
     grads_P_l2 = tf.norm (grads_P, ord=2)
@@ -235,13 +250,13 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P):
     return cosine, dot_prod
 
 
-def retrieve_final_NN_weights(models_folder):
+def retrieve_final_NN_weights(models_folder, weights_filename="pretrained_weights.h5"):
     # create toy NN:
     print ("models_folder in which we retrieve the weights", models_folder)
     new_model = TempConvNet((2, 2), 32, 4, 'CrossEntropyLoss')
-    new_model.load_weights(join (models_folder, "pretrained_weights.h5"))
+    new_model.load_weights(join (models_folder, weights_filename))
     theta_n = new_model.retrieve_layer_weights()
-    return theta_n
+    return theta_n, new_model
 
 
 def get_grads_and_CEL_from_batch(array_images, array_labels, theta_model):
@@ -259,14 +274,63 @@ def compute_cosines(batch_images_P, batch_actions_P, theta_model, models_folder,
 
     grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model)  # _, _, last_grads_P
     theta_i = theta_model.retrieve_layer_weights()  # shape is (128, 4)
-    theta_n = retrieve_final_NN_weights(models_folder)
+    theta_n, _ = retrieve_final_NN_weights(models_folder)
 
     # assert len (theta_i) == len (theta_n) == len (grads_P)
     theta_diff = [tf.math.subtract(a_i, b_i, name=None) for a_i, b_i in zip(theta_i, theta_n)]
     # assert len(theta_diff) == len(grads_P)
 
     cosine, dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_P)
-    return cosine, dot_prod
+    return cosine, dot_prod, theta_diff
+
+
+def findArgMax_helper_1(data):
+    print("")
+    print("inside findArgMax_helper_1")
+    # compute grads_c(p_i)
+    nn_model = data[0]
+    puzzle_name = data[1]
+    memory_model = data[2]
+    theta_diff = data[3]
+
+    # print ("theta_diff.shape", theta_diff.shape)
+    state_images = memory_model.retrieve_puzzle_images (puzzle_name)
+    labels = memory_model.retrieve_labels (puzzle_name)  # np.array
+    grads_p_i = get_grads_and_CEL_from_batch (state_images, labels, nn_model)
+
+    # array_images = np.asarray (state_images).astype ('float32')
+    # array_labels = np.asarray (labels).astype ('float32')
+    # print("gonna call nn_model.get_gradients_from_batch")
+    # grads_p_i = nn_model.get_gradients_from_batch (array_images, array_labels)  # the gradient of the batch (dimensions n x 4)
+    print("regurned -- grads_p_i.shape", grads_p_i)
+
+
+    dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "only_dot_prod")
+    print("dot_prod", dot_prod)
+    print("")
+    # assert False
+
+    return puzzle_name, dot_prod
+
+
+
+def find_argmax(P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size):
+    print("inside find_argmax -- ", P_list)
+    with ProcessPoolExecutor (max_workers=ncpus) as executor:
+        args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
+        results = executor.map (findArgMax_helper_1, args, chunksize=chunk_size)
+
+
+    # iterate through all p_i in P:
+    # for each p_i, get the theta_diff * grad_c(p_i)
+
+    # find the minimum one
+
+
+    # batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles(P, memory_v2)
+
+
+    pass
 
 
 def save_data_to_disk(data, filename):
@@ -316,7 +380,7 @@ def find_minimum(P, theta_model, memory_model, ncpus, chunk_size):
 
     with ProcessPoolExecutor (max_workers=ncpus) as executor:
         args = ((theta_model, puzzle_name, memory_model, loss_func) for puzzle_name in P)
-        results = executor.map (findMin_helper_function_1, args, chunksize=chunk_size)
+        results = executor.map (findMin_helper_function_1, args, chunksize=1)
 
     argmin_p = findMin_helper_function_2 (results)
     assert argmin_p is not None
