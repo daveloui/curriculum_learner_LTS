@@ -1,7 +1,6 @@
 import os
 import time
 from os.path import join
-from models.memory import Memory, MemoryV2
 from concurrent.futures.process import ProcessPoolExecutor
 import heapq
 import math
@@ -10,9 +9,10 @@ import numpy as np
 np.random.seed (1)
 # random.seed (1)
 
-from compute_cosines import retrieve_batch_data_solved_puzzles, check_if_data_saved, \
-    retrieve_all_batch_images_actions, compute_cosines, save_data_to_disk, find_minimum, find_argmax
-from save_while_for_loop_states import save_while_loop_state
+from models.memory import Memory, MemoryV2
+from compute_cosines import retrieve_batch_data_solved_puzzles, check_if_data_saved, retrieve_all_batch_images_actions,\
+    compute_cosines, save_data_to_disk, find_argmax, compute_levin_cost, find_minimum, compute_rank, compute_rank_mins
+from save_while_for_loop_states import save_while_loop_state, restore_while_loop_state
 
 
 class ProblemNode:
@@ -247,7 +247,10 @@ class Bootstrap:
 
         self._cosine_data = []
         self._dot_prod_data = []
-        self._dict_cos = {}
+        # self._dict_cos = {}
+        self._levin_costs = []
+        self._average_levin_costs = []
+        self._training_losses = []
 
     def map_function(self, data):
         gbs = data[0]
@@ -527,44 +530,36 @@ class Bootstrap:
         print("use_epsilon =", use_epsilon, " type(use_epsilon) =", type(use_epsilon))
         print("")
 
-        # tODO: assumption: the solution of each puzzle is unique -- therefore, each time we train the NN and then solve the puzzles again,
-        # we will not need to recompute the solution trajectories after each trainign of theta
-
+        # TODO:
         # step 1: check if we have already stored the solution trajectories and images of all the puzzles
-        # already_saved_data = check_if_data_saved (self._puzzle_dims)
-        # print ("already_saved_data", already_saved_data)
+        # already_saved_data = check_if_data_saved (self._puzzle_dims) # -- checks if we already created the file
+        # 'Solved_Puzzles_Batch_Data' and saved in the folder: batch_folder = 'solved_puzzles/' + puzzle_dims + "/"
+
+        Rank_max_dot_prods = []
+        Rank_min_costs = []
+        ordering = [] # TODO: only save a ordering if you solved all puzzles
+        memory = Memory ()
+        memory_v2 = MemoryV2 (self._ordering_folder, self._puzzle_dims, "add_solutions_to_new_puzzles")  # added by FD
 
         if not parameters.checkpoint:
             print("not checkpointing program")
             iteration = 1
             total_expanded = 0
             total_generated = 0
-
             budget = self._initial_budget
-            memory = Memory ()
-            memory_v2 = MemoryV2 (self._ordering_folder, self._puzzle_dims)  # added by FD
             start = time.time ()
-
             current_solved_puzzles = set ()
             last_puzzle = list (self._states)[-1]  # self._states is a dictionary of puzzle_file_name, puzzle
-
-            # TODO: only save a ordering if you solved all puzzles
-            ordering = []
-            # if you did not solve any puzzles with current budget, then double the budget
-            # d = {}
-            # d[budget] = 1
             start_while = time.time()
-            n_while = 0
 
         else:
             print("checkpointing program")
-            # restore_while_loop_state() # TODO: only need to restore before while loop starts.
+            iteration, total_expanded, total_generated, budget, start, current_solved_puzzles, last_puzzle, \
+            start_while = restore_while_loop_state(self._puzzle_dims) # TODO: only need to restore before while loop starts.
             # #TODO: because: pretend that program ends at end of while loop iteration -- then we need to just go through the inside of loop, as we would have without breakpoint
 
         t_cos = -1
         while len (current_solved_puzzles) < self._number_problems:
-
-            n_while += 1
             at_least_one_got_solved = False
             number_solved = 0
             batch_problems = {}
@@ -604,17 +599,18 @@ class Bootstrap:
 
                     if has_found_solution:
                         memory.add_trajectory (trajectory)  # stores trajectory object into a list (the list contains instances of the Trajectory class)
-                        memory_v2.add_trajectory (trajectory, puzzle_name)
+                        # memory_v2.add_trajectory (trajectory, puzzle_name)
 
                     if has_found_solution and puzzle_name not in current_solved_puzzles:
                         number_solved += 1
                         current_solved_puzzles.add (puzzle_name)
-                        at_least_one_got_solved = True
-
+                        memory_v2.add_trajectory (trajectory, puzzle_name)  # TODO: we only capture the new solutions for new puzzles
+                        #TODO: this means that we would save the solutions found the first time they are solved (not the new solutions)
                         P += [puzzle_name]  # only contains the names of puzzles that are recently solved
                         # if a puzzle was solved before (under different weights, or a different budget), then we do not
                         # add the puzzle to P
                         n_P += 1
+                        at_least_one_got_solved = True
 
             # assert n_P == number_solved
             # before training, we compute the cosines data
@@ -623,25 +619,35 @@ class Bootstrap:
                 # I think this is fine. Otherwise, if P += [puzzle_name] was in the first "if statement", then we would be
                 # computing the cosines of all puzzles (whether they were solved previously or not)
                 t_cos += 1
-                batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles (P, memory_v2)  # also stores
-                # images_P and actions_P in dictionary
-                # TODO: should we get rid of those saved? I think so! Because after training, we might have new actions/states
-                cosine, dot_prod, theta_diff = compute_cosines (batch_images_P, batch_actions_P, nn_model, self._models_folder, parameters)
+                batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles (P, memory_v2)  # also stores images_P and actions_P in dictionary (for each puzzle)
+
+                # TODO: should we get rid of states, actions saved? I think so! Because after training, we might have new actions/states
+                cosine, dot_prod, theta_diff = compute_cosines (batch_images_P, batch_actions_P, nn_model,
+                                                                self._models_folder, parameters)
                 self._cosine_data += [cosine]
                 self._dot_prod_data += [dot_prod]
+                levin_cost, average_levin_cost, training_loss = compute_levin_cost (batch_images_P, batch_actions_P,
+                                                                                    nn_model)
+                self._levin_costs += [levin_cost]
+                self._average_levin_costs += [average_levin_cost]
+                self._training_losses += [training_loss]
 
-                argmax_p = find_argmax(P, nn_model, theta_diff, memory_v2, self._ncpus, 19)
-                print("argmax", argmax_p)
-                # needs to know theta_n, theta_i, grads_{theta_i}cost(argmax_p)
+                argmax_p, Rank_sublist = compute_rank (P, nn_model, theta_diff, memory_v2, self._ncpus, 19, n_P)
+                ordering += [argmax_p]
+                Rank_max_dot_prods.append(Rank_sublist)
+                argmin_p, Rank_sublist = compute_rank_mins (P, nn_model, memory_v2, self._ncpus, 19, n_P)  # How is the ordering different if we use argmin? How is the ranking different?
+                Rank_min_costs.append (Rank_sublist)
 
-                # argmin_p = find_minimum(P, nn_model, memory_v2, self._ncpus, 19)
-                # print("argmin_p", argmin_p)
-                # ordering += [argmin_p]
-                # self._dict_cos[t_cos] = argmin_p
+                # argmax_p = find_argmax(P, nn_model, theta_diff, memory_v2, self._ncpus, 19, n_P)
+                # print("argmax", argmax_p)
+                # print("Rank_sublist", Rank_sublist)
+                # print("ordering =", ordering)
+                # print("Rank_max_dot_prods =", Rank_max_dot_prods)
+                # print ("argmin_p", argmin_p)
+                # print ("Rank_sublist", Rank_sublist)
+                # print ("Rank_min_costs =", Rank_min_costs)
 
             # FD: once you have added everything to memory, train:
-            # nn_model_prev = nn_model
-
             if memory.number_trajectories () > 0:  # if you have solved at least one puzzle with given budget, then:
                 # before the for loop starts, memory has at least 1 solution trajectory and we have not yet trained the NN with
                 # any of the puzzles solved with current budget and stored in memory
@@ -697,43 +703,47 @@ class Bootstrap:
                 file.write ('\n')
 
             # save the data we have so far
-            if at_least_one_got_solved:
-                memory_v2.save_data ()
+            # if at_least_one_got_solved:
+            #     memory_v2.save_data ()
 
             end_while = time.time()
             print("time for while-loop iter =", end_while - start_while)
             print("")
 
-            # TODO: add breakpoint here -- save --  in current while loop iteration:
-            if parameters.checkpoint and n_while % 50 == 0.0:
+            # TODO: add breakpoint here -- save --  in current while loop iteration: -- pretend that the following will happen right before breakpoint
+            if parameters.checkpoint and iteration % 51 == 0.0:  # 50  iterations already happened
                 save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
                 save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name))
-                save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
+                save_data_to_disk (self._levin_costs, join (self._log_folder, "levin_cost_data_" + self._model_name))
+                save_data_to_disk (self._average_levin_costs, join (self._log_folder, "aver_levin_cost_data_" + self._model_name))
+                save_data_to_disk (self._training_losses, join(self._log_folder, "training_loss_data_" + self._model_name))
+                save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str (self._puzzle_dims)))
+                save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str (self._puzzle_dims)))
+                # TODO: get rid of the following (?):
+                save_data_to_disk (ordering, join (self._ordering_folder, 'Ordering_BFS_' + str (self._puzzle_dims)))
+
+                # save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
                 nn_model.save_weights (join (self._models_folder,
                                              "checkpointed_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () < 0
-                save_while_loop_state (n_while, iteration, total_expanded, total_generated, budget, start,
-                                             current_solved_puzzles, last_puzzle, ordering, start_while,
-                                             self._puzzle_dims)
-                if memory.number_trajectories () == 0:  #TODO: nothing tosave, get rid of this
-                    memory.save()
-                # save the data we have so far
-                if at_least_one_got_solved: #TODO: not needed. If we solved at least one in current iteration, the memory_v2 got already saved
-                    # TODO: if we solved none in current iteration, then memory_v2 got saved in previous iteration. Nothing new to save in current iter anyway
-                    memory_v2.save_data ()  # not need this -- you can reinitialize the memory_v2 to be empty, when load checkpoint
-                    # because we only need puzzles solved in current while-loop iteration, not all puzzles solved in all iterations!
-            #     # TODO !!!! save_data_to_disk must use append mode, not write mode
+
+                memory_v2.save_data ()
+                save_while_loop_state (self._puzzle_dims, iteration, total_expanded, total_generated, budget,
+                                       current_solved_puzzles, last_puzzle, start, start_while)
+
+                # TODO !!!! save_data_to_disk must use append mode, not write mode
 
         save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
         save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name))
-        save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
+        save_data_to_disk (self._levin_costs, join (self._log_folder, "levin_cost_data_" + self._model_name))
+        save_data_to_disk (self._average_levin_costs, join (self._log_folder, "aver_levin_cost_data_" + self._model_name))
+        save_data_to_disk (self._training_losses, join (self._log_folder, "training_loss_data_" + self._model_name))
+        save_data_to_disk (ordering, join (self._ordering_folder, 'Ordering_BFS_' + str(self._puzzle_dims)))
+        save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str(self._puzzle_dims)))
+        save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str(self._puzzle_dims)))
+        # save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
 
         nn_model.save_weights (join(self._models_folder, "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
-
-        memory_v2.save_data ()  # FD
-        ordering_filename = 'Ordering_BFS_' + str(self._puzzle_dims)
-        ordering_filename = join (self._ordering_folder, ordering_filename)
-        ordering = np.array (ordering)
-        np.save (ordering_filename, ordering)
+        memory_v2.save_data ()  # in append mode
 
     def _solve_uniform(self, planner, nn_model):
         iteration = 1

@@ -18,7 +18,6 @@ from bootstrap import Bootstrap
 from multiprocessing import set_start_method
 
 from game_state import GameState
-from bootstrap_dfs_learning_planner import BootstrapDFSLearningPlanner
 from parameter_parser import parameter_parser
 
 os.environ['PYTHONHASHSEED'] = str(1)

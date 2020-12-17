@@ -4,9 +4,9 @@ import copy
 import os
 import time
 from concurrent.futures.process import ProcessPoolExecutor
+import random
 
 from domains.witness import WitnessState
-import random
 
 
 class PuzzleGenerator:

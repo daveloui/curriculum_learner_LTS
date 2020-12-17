@@ -105,7 +105,7 @@ class MemoryV2 ():
             whose values are a list containing the trajectory data (data on states and actions)
     '''
 
-    def __init__(self, path_to_save_data, puzzle_dims):
+    def __init__(self, path_to_save_data, puzzle_dims, how_do_we_add_puzzle_solutions):
         self.position = 1  # GET RID OF THIS
         self.dict = {}
         self.memory_version = 'v2'
@@ -116,20 +116,25 @@ class MemoryV2 ():
         # TODO: added:
         self.trajectories_dict = {}
 
-    def add_trajectory(self, trajectory_obj, puzzle_name):
-        if puzzle_name in self.dict.keys ():
-            return
+        if how_do_we_add_puzzle_solutions == "add_new_solutions_to_old_puzzles":
+            self.save_mode = 'wb'
         else:
-            new_trajectory_obj = TrajectoryV2 (trajectory_obj._states, trajectory_obj._actions)
-            # print("inside add_trajectory -- states", trajectory_obj._states)
-            # print("inside add_trajectory -- actions", trajectory_obj._actions)
-            new_trajectory_obj.process_states ()
-            self.dict[puzzle_name] = [self.position, new_trajectory_obj.states_data, trajectory_obj._actions]
-            # print ("self.dict[puzzle_name]", self.dict[puzzle_name])
-            self.position += 1
+            self.save_mode = 'ab'
 
-            # TODO: added:
-            self.trajectories_dict[puzzle_name] = trajectory_obj
+    def add_trajectory(self, trajectory_obj, puzzle_name):
+        # if puzzle_name in self.dict.keys ():
+        #     return
+        # else:
+        new_trajectory_obj = TrajectoryV2 (trajectory_obj._states, trajectory_obj._actions)
+        # print("inside add_trajectory -- states", trajectory_obj._states)
+        # print("inside add_trajectory -- actions", trajectory_obj._actions)
+        new_trajectory_obj.process_states ()
+        self.dict[puzzle_name] = [self.position, new_trajectory_obj.states_data, trajectory_obj._actions]
+        # print ("self.dict[puzzle_name]", self.dict[puzzle_name])
+        self.position += 1
+
+        # TODO: added:
+        self.trajectories_dict[puzzle_name] = trajectory_obj
 
     def save_trajectories_dict(self):
         new_dict = {}
@@ -144,12 +149,12 @@ class MemoryV2 ():
         filename = os.path.join (self.path_to_save_data, filename)
         # np.save (filename, self.dict) #np.savez (filename, **self.dict)
 
-        with open (filename, 'wb') as fout:
+        with open (filename, self.save_mode) as fout:
             cPickle.dump (self.dict, fout, protocol=cPickle.HIGHEST_PROTOCOL)
         fout.close ()
         # print("finished saving data")
         end = time.time ()
-        print ("time to save data", end - start)
+        print ("time to save BFS_memory", end - start)
 
     def store_puzzle_images_actions(self, puzzle_name, images_p_array, actions_p_array):
         self.dict_images_actions[puzzle_name] = [images_p_array, actions_p_array]

@@ -175,7 +175,8 @@ class CrossEntropyLoss (LossFunction):
     def compute_loss(self, trajectory, model):
         images = [s.get_image_representation () for s in trajectory.get_states ()]
         actions_one_hot = tf.one_hot (trajectory.get_actions (), model.get_number_actions ())
-        _, _, logits = model (np.array (images))
+        array_images = np.array (images)
+        _, _, logits = model.call (array_images)
 
         weights = model.get_weights ()
         weights_l2_norm = 0

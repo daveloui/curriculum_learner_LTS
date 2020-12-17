@@ -56,6 +56,7 @@ class HeuristicConvNet (tf.keras.Model):
         return self.call (x).numpy ()
 
     def call(self, input_tensor):
+        print("inside call -- type(input_tensor)", type(input_tensor))
         x = self.conv1 (input_tensor)
         #         x = self.pool1(x)
         x = self.conv2 (x)
@@ -63,6 +64,7 @@ class HeuristicConvNet (tf.keras.Model):
         x_flatten = self.flatten (x)
         x = self.dense1 (x_flatten)
         logits_h = self.dense2 (x)
+        print("got logits_h our of call", type(logits_h))
 
         return logits_h
 
@@ -248,7 +250,6 @@ class ConvNet (tf.keras.Model):
         return log_softmax.numpy (), x_softmax.numpy ()
 
     def call(self, input_tensor):
-
         x = self.conv1 (input_tensor)
         #         x = self.pool1(x)
         x = self.conv2 (x)
@@ -267,7 +268,7 @@ class ConvNet (tf.keras.Model):
         return self.cross_entropy_loss (y, logits)
 
     def get_gradients_from_batch(self, batch_training_data, batch_actions):
-        print("inside get_gradients_from_batch")
+        # print("inside get_gradients_from_batch")
         with tf.GradientTape () as tape:
             tape.watch (self.trainable_variables)
             x = self.conv1 (batch_training_data)
@@ -280,7 +281,6 @@ class ConvNet (tf.keras.Model):
         grads = tape.gradient (loss, self.trainable_variables)
         # print(type(grads), len(grads))
         # loss_val = loss.numpy ()
-        print("gonna return grads", grads)
         return grads
 
     def train_with_memory(self, memory):
@@ -290,7 +290,6 @@ class ConvNet (tf.keras.Model):
         for trajectory in memory.next_trajectory ():
             with tf.GradientTape () as tape:
                 loss = self._loss_function.compute_loss (trajectory, self)
-
             grads = tape.gradient (loss, self.trainable_weights)
 
             self.optimizer.apply_gradients (zip (grads, self.trainable_weights))

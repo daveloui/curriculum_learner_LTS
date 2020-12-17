@@ -28,6 +28,7 @@ class KerasModel ():
             return self.model.predict (x)
 
     def call(self, x):
+        # print("inside model wrapper call")
         return self.model.call(x)
 
     def train_with_memory(self, memory):

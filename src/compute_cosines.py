@@ -6,7 +6,11 @@ import pickle
 import math
 from tensorflow import keras
 from tensorflow.keras import layers
+import concurrent.futures
 from concurrent.futures.process import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import time
 
 from models.model_wrapper import KerasManager, KerasModel
 from models.temp_model import TempConvNet #temp_model,
@@ -14,11 +18,17 @@ from models.temp_model import TempConvNet #temp_model,
 tf.random.set_seed (1)
 np.random.seed (1)
 
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+try:
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    print("passed -- tf.config.experimental.set_memory_growth")
+except:
+    # Invalid device or cannot modify virtual devices once initialized.
+    print("did not pass -- tf.config.experimental.set_memory_growth")
+    pass
 
 
 # functions not used:
-
-
 def get_batch_data_all_puzzles(dict):
     # get array of images for each puzzle
     # get array of labels for each puzzle
@@ -165,8 +175,6 @@ def retrieve_all_batch_images_actions(d, list_solved_puzzles=None, label="S_minu
 
 
 # Functions used:
-
-
 def retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2):
     # TODO: should I save the np.array of images or data that can be used to gnerate the np.arrays?
     all_images_list = []
@@ -214,32 +222,20 @@ def map_zero_denom (dot_prod_p_vs_T):
 
 
 def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="cosine_and_dot_prod"):
-    print("inside compute_and_save_cosines_helper_func")
+    # grads_P is a list of tensors
+    # print("")
+    # print("inside compute_and_save_cosines_helper_func")
     l_theta_diff = []
     l_grads_P = []
     for i, tensor in enumerate(theta_diff):
-        print("tensor.shape", tensor.shape)
-        print("grads_P[i].shape", grads_P[i].shape)
         assert tensor.shape == grads_P[i].shape
-        print("passed assert")
         l_theta_diff.append(tf.keras.backend.flatten(tensor))
-        l_grads_P.append(tf.keras.backend.flatten(grads_P[i]))
-
-    print("finished loop")
-    print("len(l_theta_diff)", len(l_theta_diff))
+        l_grads_P.append(tf.keras.backend.flatten(grads_P[i]))    # where the error happens
     theta_diff = tf.concat (l_theta_diff, axis=0)
-    print("f")
     grads_P = tf.concat (l_grads_P, axis=0)
-    print("passed concat")
-    print("theta_diff.shape", theta_diff.shape)
-    print("grads_P.shape", grads_P.shape)
     assert theta_diff.shape[0] == grads_P.shape
-    print("passed second assert")
-
-    dot_prod = tf.tensordot (theta_diff, grads_P, 1).numpy ()  # tf.reduce_sum(tf.multiply(a, b))
-    print("passed tensordot")
+    dot_prod = tf.tensordot (theta_diff, grads_P, 1).numpy ()
     if label == "only_dot_prod":
-        print("gonna return fot_prod", dot_prod)
         return dot_prod
 
     theta_diff_l2 = tf.norm (theta_diff, ord=2)
@@ -247,14 +243,15 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="cosine_and
     denom = theta_diff_l2 * grads_P_l2
 
     cosine = dot_prod / denom.numpy()
+    print("got cosine and dot_prod")
     return cosine, dot_prod
 
 
 def retrieve_final_NN_weights(models_folder, weights_filename="pretrained_weights.h5"):
     # create toy NN:
-    print ("models_folder in which we retrieve the weights", models_folder)
     new_model = TempConvNet((2, 2), 32, 4, 'CrossEntropyLoss')
-    new_model.load_weights(join (models_folder, weights_filename))
+    full_filename = join (models_folder, weights_filename)
+    new_model.load_weights(full_filename)
     theta_n = new_model.retrieve_layer_weights()
     return theta_n, new_model
 
@@ -263,13 +260,13 @@ def get_grads_and_CEL_from_batch(array_images, array_labels, theta_model):
     array_images = np.asarray (array_images).astype ('float32')
     array_labels = np.asarray (array_labels).astype ('float32')
     grads = theta_model.get_gradients_from_batch (array_images, array_labels)  # the gradient of the batch (dimensions n x 4)
-
     # num_images = array_images.shape[0]
     # sum_loss_val = num_images * mean_loss_val
     return grads  # sum_loss_val, mean_loss_val, grads
 
 
 def compute_cosines(batch_images_P, batch_actions_P, theta_model, models_folder, parameters):
+    # print("inside compute cosines")
     assert batch_images_P.shape[0] == batch_actions_P.shape[0]
 
     grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model)  # _, _, last_grads_P
@@ -284,58 +281,157 @@ def compute_cosines(batch_images_P, batch_actions_P, theta_model, models_folder,
     return cosine, dot_prod, theta_diff
 
 
+def findArgMax_helper_2 (results):  # results = (puzzle_name, log_frac, states_list, actions_list)
+    print("inside findArgMax_helper_2")
+    print("type(results) =", type(results))
+    print("results =", results)
+    max_val = float ('-inf')
+    argmax_p = None
+    for result in results: # each result is a tuple
+        print("result", result)
+        new_puzzle_name = result[0]
+        dot_prod = result[1]
+        if dot_prod > max_val:
+            max_val = dot_prod
+            argmax_p = new_puzzle_name
+    return argmax_p
+
+
 def findArgMax_helper_1(data):
-    print("")
-    print("inside findArgMax_helper_1")
+    # print("inside findArgMax_helper_1")
     # compute grads_c(p_i)
     nn_model = data[0]
     puzzle_name = data[1]
     memory_model = data[2]
     theta_diff = data[3]
 
-    # print ("theta_diff.shape", theta_diff.shape)
     state_images = memory_model.retrieve_puzzle_images (puzzle_name)
     labels = memory_model.retrieve_labels (puzzle_name)  # np.array
     grads_p_i = get_grads_and_CEL_from_batch (state_images, labels, nn_model)
 
-    # array_images = np.asarray (state_images).astype ('float32')
-    # array_labels = np.asarray (labels).astype ('float32')
-    # print("gonna call nn_model.get_gradients_from_batch")
-    # grads_p_i = nn_model.get_gradients_from_batch (array_images, array_labels)  # the gradient of the batch (dimensions n x 4)
-    print("regurned -- grads_p_i.shape", grads_p_i)
-
 
     dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "only_dot_prod")
-    print("dot_prod", dot_prod)
-    print("")
-    # assert False
-
     return puzzle_name, dot_prod
 
 
-
-def find_argmax(P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size):
+def find_argmax(P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n_P):
+    print("")
     print("inside find_argmax -- ", P_list)
-    with ProcessPoolExecutor (max_workers=ncpus) as executor:
+    s1 = time.time()
+
+    chunk_size_heuristic = math.ceil(n_P / (ncpus * 4))
+    with ThreadPoolExecutor (max_workers=ncpus) as executor:
         args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
-        results = executor.map (findArgMax_helper_1, args, chunksize=chunk_size)
+        results = list(executor.map (findArgMax_helper_1, args, chunksize=chunk_size_heuristic))
+    print("successfully executed parallelization to -- findArgMax_helper_1")
+    e1 = time.time()
+    time_el1 = e1 - s1
+    # print("time_el1 =", time_el1)
+
+    # s2 = time.time()
+    # with ThreadPoolExecutor (max_workers=ncpus) as executor:
+    #     args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
+    #     result_futures = list (map (lambda x: executor.submit (findArgMax_helper_1, x), args))
+    #     results = [f.result () for f in concurrent.futures.as_completed (result_futures)]  # this is a list
+    # e2 = time.time()
+    # time_el2 = e2 - s2
+    # print("time_el2 =", time_el2)
+
+    argmax_p = findArgMax_helper_2 (results)
+    return argmax_p
 
 
-    # iterate through all p_i in P:
-    # for each p_i, get the theta_diff * grad_c(p_i)
+def compute_rank (P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n_P):
+    # print("inside compute rank")
+    chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
+    with ThreadPoolExecutor (max_workers=ncpus) as executor:
+        args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
+        results = list(executor.map (findArgMax_helper_1, args, chunksize=chunk_size_heuristic))
 
-    # find the minimum one
+    indices = list (range (len (results)))
+    indices.sort (key=lambda x: results[x][1], reverse=True)
+    # print("sorted_indices", indices)
+    R = [(None, 0.0)] * len (indices)  #R = []  # R = [(None, 0.0)] * len (indices)
+    for i, x in enumerate (indices):
+        # print("results[x] =", results[x])
+        R[i] = results[x][0]  #R.append(results[x][0])
+    argmax_p = R[0]
+    return argmax_p, R
 
 
-    # batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles(P, memory_v2)
+def findMin_helper_function_1 (data):
+    theta_model = data[0]
+    puzzle_name = data[1]
+    memory_model = data[2]
+    loss_func = data[3]
+
+    state_images = memory_model.retrieve_puzzle_images(puzzle_name) # list of np.arrays
+    labels = memory_model.retrieve_labels(puzzle_name) # np.array
+    num_states = state_images.shape[0]
+    log_d = math.log (num_states)
+
+    # Way #1:
+    # action_distribution_log, _ = theta_model.predict (state_images)  #np.array (state_images))
+    # elem_wise_mult = np.multiply(labels, action_distribution_log)
+    # log_probs = np.sum (elem_wise_mult) # this is the overall log_prob of solving the puzzle given current weights
+    # levin_score = log_d - log_probs
+    # average_levin_score = (1.0/num_states) * levin_score
+
+    # Way #2
+    _, _, logits_preds = theta_model.call (state_images)
+    assert logits_preds.shape[0] == num_states
+
+    aver_CEL = loss_func(labels, logits_preds)   # loss_func(labels, logits_preds) was previously defined as the average CEL!
+    CEL = num_states * aver_CEL
+    levin_cost = log_d + (num_states * aver_CEL.numpy())  # if using way #1 --> log_frac = log_d - log_probs
+    # aver_levin_cost = (1.0/num_states) * log_d + aver_CEL
+
+    return puzzle_name, levin_cost  #, CEL, log_d
 
 
-    pass
+def compute_rank_mins (P_list, nn_model, memory_model, ncpus, chunk_size, n_P):
+    # print ("inside compute rank_mins")
+    chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
+    loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
+    with ThreadPoolExecutor (max_workers=ncpus) as executor:
+        args = ((nn_model, puzzle_name, memory_model, loss_func) for puzzle_name in P_list)
+        results = list(executor.map (findMin_helper_function_1, args, chunksize=chunk_size_heuristic))
+
+    indices = list (range (len (results)))
+    indices.sort (key=lambda x: results[x][1])
+    R = [(None, 0.0)] * len (indices)  #R = []  # R = [(None, 0.0)] * len (indices)
+    for i, x in enumerate (indices):
+        R[i] = results[x][0]  #R.append(results[x][0])
+    argmin_p = R[0]
+    return argmin_p, R
+
+
+def compute_levin_cost(P_batch_states, P_batch_actions, theta_model):
+    loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
+    _, _, logits_preds = theta_model.call (P_batch_states)
+    # print("logits_preds.shape[0] =", logits_preds.shape[0])
+    assert logits_preds.shape[0] == P_batch_states.shape[0]
+
+    aver_CEL = loss_func (P_batch_actions, logits_preds)  # used for training (this is the training loss)
+    CEL = logits_preds.shape[0] * aver_CEL  # same as sum_probabilities
+
+    len_trajectory = math.log(P_batch_states.shape[0])
+
+    levin_score = len_trajectory + CEL
+    # aver_levin_cost_1 = ((1.0 / logits_preds.shape[0]) * len_trajectory) + aver_CEL  # same as below, down to 10^-9
+    aver_levin_cost = (1.0 / logits_preds.shape[0]) * levin_score
+
+    return levin_score, aver_levin_cost, aver_CEL
 
 
 def save_data_to_disk(data, filename):
-    np.save(filename, data)
-
+    # np.save(filename, data)
+    if not os.path.exists (filename):
+        outfile = open (filename, 'wb')
+    else:
+        outfile = open (filename, 'ab')
+    pickle.dump (data, outfile)
+    outfile.close ()
 
 def findMin_helper_function_2 (results):  # results = (puzzle_name, log_frac, states_list, actions_list)
     min_val = float ('inf')
@@ -349,39 +445,21 @@ def findMin_helper_function_2 (results):  # results = (puzzle_name, log_frac, st
     return argmin_p
 
 
-def findMin_helper_function_1 (data):
-    # Note, the trajectories contain the following member variables: states, ..., solution_cost
-    theta_model = data[0]
-    puzzle_name = data[1]
-    memory_model = data[2]
-    loss_func = data[3]
-
-    state_images = memory_model.retrieve_puzzle_images(puzzle_name) # list of np.arrays
-    log_d = math.log(state_images.shape[0])
-    labels = memory_model.retrieve_labels(puzzle_name) # np.array
-
-    # Way #1:
-    # action_distribution_log, _ = theta_model.predict (state_images)  #np.array (state_images))
-    # elem_wise_mult = np.multiply(labels, action_distribution_log)
-    # log_probs = np.sum (elem_wise_mult) # this is the overall log_prob of solving the puzzle given current weights
-    # print("log_probs", log_probs)
-
-    # Way #2
-    _, _, logits_preds = theta_model.call (state_images)
-    CEL = logits_preds.shape[0] * loss_func(labels, logits_preds)
-    # print ("CEL loss", CEL)
-
-    log_frac = log_d + CEL  # if uing way #1 --> log_frac = log_d - log_probs
-    return puzzle_name, log_frac
-
-
-def find_minimum(P, theta_model, memory_model, ncpus, chunk_size):
+def find_minimum(P, theta_model, memory_model, ncpus, chunk_size, n_P):
     loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
 
+    chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
     with ProcessPoolExecutor (max_workers=ncpus) as executor:
         args = ((theta_model, puzzle_name, memory_model, loss_func) for puzzle_name in P)
-        results = executor.map (findMin_helper_function_1, args, chunksize=1)
+        results = executor.map (findMin_helper_function_1, args, chunksize=chunk_size_heuristic)
 
     argmin_p = findMin_helper_function_2 (results)
     assert argmin_p is not None
     return argmin_p
+
+
+
+
+
+
+
