@@ -26,7 +26,6 @@ def save_while_loop_state(puzzle_dims, iteration, total_expanded, total_generate
     d_wl["last_puzzle"] = last_puzzle
     d_wl["start"] = start
     d_wl["start_while"] = start_while
-    print ("len(d_wl) =", len (d_wl))
 
     outfile = open (filename, 'wb')
     pickle.dump (d_wl, outfile)
@@ -34,6 +33,7 @@ def save_while_loop_state(puzzle_dims, iteration, total_expanded, total_generate
 
 
 def restore_while_loop_state(puzzle_dims):
+    print("inside restore_while_loop_state")
     checkpoint_folder = 'checkpoint_data_' + str(puzzle_dims) + "/"
     assert os.path.exists (checkpoint_folder)
     filename = os.path.join (checkpoint_folder, 'While_Loop_State.pkl')

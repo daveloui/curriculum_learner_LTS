@@ -161,15 +161,6 @@ def main():
     with KerasManager () as manager:
 
         nn_model = manager.KerasModel ()
-        # If you are not loading data, you create the nn_folder.
-        # Else, if you are loading data from a previous experiment, checkpoint_folder == 'path_to_save_ordering_and_model'
-        if parameters.checkpoint:
-            nn_folder = "trained_models_large/Breadth_FS" + parameters.puzzle_dims + "-" + parameters.model_name
-            path_to_retrieve_NN = os.path.abspath (nn_folder)
-            print(path_to_retrieve_NN)
-            new_model.load_weights (join (path_to_retrieve_NN, "checkpointed_weights.h5"))
-            print("passed getting NN weight checkpoint")
-        # TODO: when you are or are not loading files, save sets T and S (or names of puzzles in T and S), or positions of these puzzles
 
         bootstrap = None
 
@@ -214,6 +205,22 @@ def main():
                 nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=True)
             else:
                 nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=False)
+
+            # If you are not loading data, you create the nn_folder.
+            # Else, if you are loading data from a previous experiment, checkpoint_folder == 'path_to_save_ordering_and_model'
+            if parameters.checkpoint:
+                # puzzle_dims = parameters.model_name.split ('-')[0]
+                print ("")
+                print ("parameters.use_epsilon", parameters.use_epsilon)
+                print ("")
+
+                nn_folder = 'trained_models_large/BreadthFS_' + parameters.model_name + "_" + "use_epsilon=" + str (
+                    bool (int (parameters.use_epsilon)))
+                path_to_retrieve_NN = os.path.abspath (nn_folder)
+                print ("path_to_retrieve_NN =", path_to_retrieve_NN)
+                nn_model.load_weights (join (path_to_retrieve_NN, "checkpointed_weights.h5"))
+                print ("passed getting NN weight checkpoint")
+            # TODO: when you are or are not loading files, save sets T and S (or names of puzzles in T and S), or positions of these puzzles
 
             if parameters.learning_mode:
                 #                 bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)

@@ -47,14 +47,14 @@ class KerasModel ():
         print ("now retrieve_output_layer_weights")
         return self.model.retrieve_layer_weights()
 
-
     def retrieve_output_layer_weights_temp(self):
         print ("now retrieve_output_layer_weights_temp")
         return self.model.retrieve_output_layer_weights_temp()
 
-
     def load_weights(self, filepath):
-        self.model.load_weights (filepath).expect_partial ()
+        print ("now load_weights")
+        self.model.load_weights (filepath)     #.expect_partial ()
+        print("load_weights passed successfully")
 
     def get_gradients_from_batch(self, array_images, array_labels):
         return self.model.get_gradients_from_batch (array_images, array_labels)
@@ -65,9 +65,6 @@ class KerasModel ():
 
     def clone_model(self):
         return self.model.clone_model()
-
-    def load_weights(self, filepath):
-        return self.model.load_weights (filepath).expect_partial ()
 
     def load_model(self, filepath):
         self.model.load_model(filepath)

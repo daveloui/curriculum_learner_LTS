@@ -527,7 +527,7 @@ class Bootstrap:
     def _solve_uniform_online(self, planner, nn_model, parameters):
         print("inside _solve_uniform_online")
         use_epsilon = bool(int(parameters.use_epsilon))
-        print("use_epsilon =", use_epsilon, " type(use_epsilon) =", type(use_epsilon))
+        print("use_epsilon =", use_epsilon)
         print("")
 
         # TODO:
@@ -554,13 +554,14 @@ class Bootstrap:
 
         else:
             print("checkpointing program")
-            iteration, total_expanded, total_generated, budget, start, current_solved_puzzles, last_puzzle, \
-            start_while = restore_while_loop_state(self._puzzle_dims) # TODO: only need to restore before while loop starts.
+            iteration, total_expanded, total_generated, budget, current_solved_puzzles, last_puzzle, start, start_while \
+                = restore_while_loop_state(self._puzzle_dims) # TODO: only need to restore before while loop starts.
             # #TODO: because: pretend that program ends at end of while loop iteration -- then we need to just go through the inside of loop, as we would have without breakpoint
 
         t_cos = -1
+        print ("len(current_solved_puzzles) =", len (current_solved_puzzles))
+        print ("")
         while len (current_solved_puzzles) < self._number_problems:
-            at_least_one_got_solved = False
             number_solved = 0
             batch_problems = {}
             for_loop_index = 0
@@ -612,6 +613,7 @@ class Bootstrap:
                         n_P += 1
                         at_least_one_got_solved = True
 
+            print("current_solved_puzzles", current_solved_puzzles)
             # assert n_P == number_solved
             # before training, we compute the cosines data
             if n_P > 0:
@@ -693,8 +695,6 @@ class Bootstrap:
                 # d[budget] = 1
                 continue
 
-            iteration += 1
-
             unsolved_puzzles = self._all_puzzle_names.difference (current_solved_puzzles)
             with open (join (self._log_folder, 'unsolved_puzzles_' + self._model_name), 'a') as file:
                 for puzzle in unsolved_puzzles:  # current_solved_puzzles:
@@ -702,16 +702,14 @@ class Bootstrap:
                 file.write ('\n')
                 file.write ('\n')
 
-            # save the data we have so far
-            # if at_least_one_got_solved:
-            #     memory_v2.save_data ()
-
             end_while = time.time()
             print("time for while-loop iter =", end_while - start_while)
             print("")
 
+            iteration += 1
+
             # TODO: add breakpoint here -- save --  in current while loop iteration: -- pretend that the following will happen right before breakpoint
-            if parameters.checkpoint and iteration % 51 == 0.0:  # 50  iterations already happened
+            if iteration % 3 == 0.0:  # 51 --> 50  iterations already happened
                 save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
                 save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name))
                 save_data_to_disk (self._levin_costs, join (self._log_folder, "levin_cost_data_" + self._model_name))
@@ -730,20 +728,23 @@ class Bootstrap:
                 save_while_loop_state (self._puzzle_dims, iteration, total_expanded, total_generated, budget,
                                        current_solved_puzzles, last_puzzle, start, start_while)
 
+                break
+
                 # TODO !!!! save_data_to_disk must use append mode, not write mode
+        print("len (current_solved_puzzles) == self._number_problems", len (current_solved_puzzles) == self._number_problems)
+        if len (current_solved_puzzles) == self._number_problems and iteration % 3 != 0.0:
+            save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
+            save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name))
+            save_data_to_disk (self._levin_costs, join (self._log_folder, "levin_cost_data_" + self._model_name))
+            save_data_to_disk (self._average_levin_costs, join (self._log_folder, "aver_levin_cost_data_" + self._model_name))
+            save_data_to_disk (self._training_losses, join (self._log_folder, "training_loss_data_" + self._model_name))
+            save_data_to_disk (ordering, join (self._ordering_folder, 'Ordering_BFS_' + str(self._puzzle_dims)))
+            save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str(self._puzzle_dims)))
+            save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str(self._puzzle_dims)))
+            # save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
 
-        save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name))
-        save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name))
-        save_data_to_disk (self._levin_costs, join (self._log_folder, "levin_cost_data_" + self._model_name))
-        save_data_to_disk (self._average_levin_costs, join (self._log_folder, "aver_levin_cost_data_" + self._model_name))
-        save_data_to_disk (self._training_losses, join (self._log_folder, "training_loss_data_" + self._model_name))
-        save_data_to_disk (ordering, join (self._ordering_folder, 'Ordering_BFS_' + str(self._puzzle_dims)))
-        save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str(self._puzzle_dims)))
-        save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str(self._puzzle_dims)))
-        # save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
-
-        nn_model.save_weights (join(self._models_folder, "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
-        memory_v2.save_data ()  # in append mode
+            nn_model.save_weights (join(self._models_folder, "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
+            memory_v2.save_data ()
 
     def _solve_uniform(self, planner, nn_model):
         iteration = 1
