@@ -1,10 +1,12 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import heapq
 import numpy as np
-
-from models.memory import Trajectory
 import math
 import time
 import copy
+
+from models.memory import Trajectory
 
 
 class TreeNode:
@@ -260,6 +262,9 @@ class BFSLevin ():
         Returns Boolean indicating whether the solution was found,
         number of nodes expanded, and number of nodes generated
         """
+        print("in search_for_learning, importing tensorflow")
+        import tensorflow as tf
+
         state = data[0]
         puzzle_name = data[1]
         budget = data[2]

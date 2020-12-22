@@ -8,12 +8,7 @@ from search.bfs_levin import BFSLevin
 from models.model_wrapper import KerasManager, KerasModel
 from concurrent.futures.process import ProcessPoolExecutor
 import argparse
-from search.a_star import AStar
-from search.gbfs import GBFS
-from search.bfs_levin_mult import BFSLevinMult
-from domains.sliding_tile_puzzle import SlidingTilePuzzle
-from domains.sokoban import Sokoban
-from search.puct import PUCT
+
 from bootstrap import Bootstrap
 from multiprocessing import set_start_method
 
@@ -21,7 +16,6 @@ from game_state import GameState
 from parameter_parser import parameter_parser
 
 os.environ['PYTHONHASHSEED'] = str(1)
-
 
 
 def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-1):
@@ -78,33 +72,29 @@ def main():
     It is possible to use this system to either train a new neural network model through the bootstrap system and
     Levin tree search (LTS) algorithm, or to use a trained neural network with LTS.
     """
+    import tensorflow as tf
+    # print ("inside main")
+    # if tf.test.gpu_device_name ():
+    #     print ('Default GPU Device:{}'.format (tf.test.gpu_device_name ()))
+    # else:
+    #     print ("Please install GPU version of TF")
+
+    physical_devices = tf.config.experimental.list_physical_devices ('GPU')
+    try:
+        tf.config.experimental.set_memory_growth (physical_devices[0], True)
+        print ("passed -- tf.config.experimental.set_memory_growth")
+    except:
+        # Invalid device or cannot modify virtual devices once initialized.
+        print ("did not pass -- tf.config.experimental.set_memory_growth")
+        pass
+
+
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     parameters = parameter_parser()
 
-
     states = {}
 
-    if parameters.problem_domain == 'SlidingTile' and parameters.single_test_file:
-        with open (parameters.problems_folder, 'r') as file:
-            problem = file.readline ()
-            instance_name = parameters.problems_folder[
-                            parameters.problems_folder.rfind ('/') + 1:len (parameters.problems_folder)]
-            puzzle = SlidingTilePuzzle (problem)
-            states[instance_name] = puzzle
-
-    elif parameters.problem_domain == 'SlidingTile':
-        puzzle_files = [f for f in listdir (parameters.problems_folder) if
-                        isfile (join (parameters.problems_folder, f))]
-
-        for filename in puzzle_files:
-            with open (join (parameters.problems_folder, filename), 'r') as file:
-                problems = file.readlines ()
-
-                for i in range (len (problems)):
-                    puzzle = SlidingTilePuzzle (problems[i])
-                    states['puzzle_' + str (i)] = puzzle
-
-    elif parameters.problem_domain == 'Witness':
+    if parameters.problem_domain == 'Witness':
         puzzle_files = [f for f in listdir (parameters.problems_folder) if
                         isfile (join (parameters.problems_folder, f))]
 
@@ -114,41 +104,9 @@ def main():
             s = WitnessState ()
             s.read_state (join (parameters.problems_folder, file))
             states[file] = s
-    elif parameters.problem_domain == 'Sokoban':
-        problem = []
-        puzzle_files = []
-        if isfile (parameters.problems_folder):
-            puzzle_files.append (parameters.problems_folder)
-        else:
-            puzzle_files = [join (parameters.problems_folder, f) for f in listdir (parameters.problems_folder) if
-                            isfile (join (parameters.problems_folder, f))]
-
-        problem_id = 0
-
-        for filename in puzzle_files:
-            with open (filename, 'r') as file:
-                all_problems = file.readlines ()
-
-            for line_in_problem in all_problems:
-                if ';' in line_in_problem:
-                    if len (problem) > 0:
-                        puzzle = Sokoban (problem)
-                        states['puzzle_' + str (problem_id)] = puzzle
-
-                    problem = []
-                    #                 problem_id = line_in_problem.split(' ')[1].split('\n')[0]
-                    problem_id += 1
-
-                elif '\n' != line_in_problem:
-                    problem.append (line_in_problem.split ('\n')[0])
-
-            if len (problem) > 0:
-                puzzle = Sokoban (problem)
-                states['puzzle_' + str (problem_id)] = puzzle
 
     print ('Loaded ', len (states), ' instances')
     #     input_size = s.get_image_representation().shape
-
     #     set_start_method('forkserver', force=True)
 
     KerasManager.register ('KerasModel', KerasModel)
@@ -161,6 +119,7 @@ def main():
     with KerasManager () as manager:
 
         nn_model = manager.KerasModel ()
+        print("after nn_model = manager.KerasModel ()")
 
         bootstrap = None
 
@@ -170,33 +129,15 @@ def main():
                                    ncpus=ncpus,
                                    initial_budget=int (parameters.search_budget),
                                    gradient_steps=int (parameters.gradient_steps))
-
-        if parameters.search_algorithm == 'PUCT':
-
-            bfs_planner = PUCT (parameters.use_heuristic, parameters.use_learned_heuristic, k_expansions,
-                                float (parameters.cpuct))
-
-            if parameters.use_learned_heuristic:
-                nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=True)
-            else:
-                nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=False)
-
-            if parameters.learning_mode:
-                # bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
-                bootstrap.solve_problems (bfs_planner, nn_model)
-            elif parameters.blind_search:
-                search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
-                        int (parameters.search_budget))
-            else:
-                nn_model.load_weights (join ('trained_models_large', parameters.model_name, 'model_weights'))
-                search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
-                        int (parameters.search_budget))
+            print("created Bootstrap")
 
         if parameters.search_algorithm == 'Levin' or parameters.search_algorithm == 'LevinStar':
 
             if parameters.search_algorithm == 'Levin':
+                print("parameters.search_algorithm == Levin" is True)
                 bfs_planner = BFSLevin (parameters.use_heuristic, parameters.use_learned_heuristic, False, k_expansions,
                                         float (parameters.mix_epsilon))
+                print("created an instance bfs_planner")
             else:
                 bfs_planner = BFSLevin (parameters.use_heuristic, parameters.use_learned_heuristic, True, k_expansions,
                                         float (parameters.mix_epsilon))
@@ -204,7 +145,9 @@ def main():
             if parameters.use_learned_heuristic:
                 nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=True)
             else:
+                print("going to initialize NN")
                 nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=False)
+                print("finished initializing NNs")
 
             # If you are not loading data, you create the nn_folder.
             # Else, if you are loading data from a previous experiment, checkpoint_folder == 'path_to_save_ordering_and_model'
@@ -223,8 +166,12 @@ def main():
             # TODO: when you are or are not loading files, save sets T and S (or names of puzzles in T and S), or positions of these puzzles
 
             if parameters.learning_mode:
-                #                 bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
+                print ("parameters.learning_mode is True")
+                solve_problems_start_time = time.time()
                 bootstrap.solve_problems (bfs_planner, nn_model, parameters)
+                solve_problems_end_time = time.time()
+                print("time to execute entire prog =", solve_problems_end_time - solve_problems_start_time)
+                print ("finished executing bootstrap.solve_problems (bfs_planner, nn_model)")
             elif parameters.blind_search:
                 search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
                         int (parameters.search_budget))
@@ -233,57 +180,7 @@ def main():
                 search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
                         int (parameters.search_budget))
 
-        if parameters.search_algorithm == 'LevinMult':
 
-            bfs_planner = BFSLevinMult (parameters.use_heuristic, parameters.use_learned_heuristic, k_expansions)
-
-            if parameters.use_learned_heuristic:
-                nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=True)
-            else:
-                nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=False)
-
-            if parameters.learning_mode:
-                #                 bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
-                bootstrap.solve_problems (bfs_planner, nn_model)
-            elif parameters.blind_search:
-                search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
-                        int (parameters.search_budget))
-            else:
-                nn_model.load_weights (join ('trained_models_large', parameters.model_name, 'model_weights'))
-                search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
-                        int (parameters.search_budget))
-
-        if parameters.search_algorithm == 'AStar':
-            bfs_planner = AStar (parameters.use_heuristic, parameters.use_learned_heuristic, k_expansions)
-
-            if parameters.learning_mode and parameters.use_learned_heuristic:
-                nn_model.initialize (parameters.loss_function, parameters.search_algorithm)
-                #                 bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
-                bootstrap.solve_problems (bfs_planner, nn_model)
-            elif parameters.use_learned_heuristic:
-                nn_model.initialize (parameters.loss_function, parameters.search_algorithm)
-                nn_model.load_weights (join ('trained_models_large', parameters.model_name, 'model_weights'))
-                search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
-                        int (parameters.search_budget))
-            else:
-                search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
-                        int (parameters.search_budget))
-
-        if parameters.search_algorithm == 'GBFS':
-            bfs_planner = GBFS (parameters.use_heuristic, parameters.use_learned_heuristic, k_expansions)
-
-            if parameters.learning_mode:
-                nn_model.initialize (parameters.loss_function, parameters.search_algorithm)
-                #                 bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
-                bootstrap.solve_problems (bfs_planner, nn_model)
-            elif parameters.use_learned_heuristic:
-                nn_model.initialize (parameters.loss_function, parameters.search_algorithm)
-                nn_model.load_weights (join ('trained_models_large', parameters.model_name, 'model_weights'))
-                search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
-                        int (parameters.search_budget))
-            else:
-                search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
-                        int (parameters.search_budget))
 
 
 if __name__ == "__main__":

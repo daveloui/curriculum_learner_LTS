@@ -113,7 +113,7 @@ class MemoryV2 ():
         self.puzzle_dims = puzzle_dims
         self.dict_images_actions = {}
 
-        # TODO: added:
+        # added:
         self.trajectories_dict = {}
 
         if how_do_we_add_puzzle_solutions == "add_new_solutions_to_old_puzzles":
@@ -133,7 +133,7 @@ class MemoryV2 ():
         # print ("self.dict[puzzle_name]", self.dict[puzzle_name])
         self.position += 1
 
-        # TODO: added:
+        # added:
         self.trajectories_dict[puzzle_name] = trajectory_obj
 
     def save_trajectories_dict(self):

@@ -1,9 +1,10 @@
-import numpy as np
-import tensorflow as tf
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 from os.path import join
 import pickle
 import math
+import numpy as np
+import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 import concurrent.futures
@@ -17,15 +18,6 @@ from models.temp_model import TempConvNet #temp_model,
 
 tf.random.set_seed (1)
 np.random.seed (1)
-
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
-try:
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
-    print("passed -- tf.config.experimental.set_memory_growth")
-except:
-    # Invalid device or cannot modify virtual devices once initialized.
-    print("did not pass -- tf.config.experimental.set_memory_growth")
-    pass
 
 
 # functions not used:
@@ -298,7 +290,8 @@ def findArgMax_helper_2 (results):  # results = (puzzle_name, log_frac, states_l
 
 
 def findArgMax_helper_1(data):
-    # print("inside findArgMax_helper_1")
+    import tensorflow as tf
+    print("inside findArgMax_helper_1 -- importing tensorflow")
     # compute grads_c(p_i)
     nn_model = data[0]
     puzzle_name = data[1]
@@ -342,12 +335,12 @@ def find_argmax(P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n
 
 
 def compute_rank (P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n_P):
-    # print("inside compute rank")
+    print("inside compute rank")
     chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
     with ThreadPoolExecutor (max_workers=ncpus) as executor:
         args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
         results = list(executor.map (findArgMax_helper_1, args, chunksize=chunk_size_heuristic))
-
+    print ("successfully executed parallelization to -- findArgMax_helper_1")
     indices = list (range (len (results)))
     indices.sort (key=lambda x: results[x][1], reverse=True)
     # print("sorted_indices", indices)
@@ -360,6 +353,8 @@ def compute_rank (P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size,
 
 
 def findMin_helper_function_1 (data):
+    import tensorflow as tf
+
     theta_model = data[0]
     puzzle_name = data[1]
     memory_model = data[2]
@@ -390,12 +385,13 @@ def findMin_helper_function_1 (data):
 
 
 def compute_rank_mins (P_list, nn_model, memory_model, ncpus, chunk_size, n_P):
-    # print ("inside compute rank_mins")
+    print ("inside compute rank_mins")
     chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
     loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
     with ThreadPoolExecutor (max_workers=ncpus) as executor:
         args = ((nn_model, puzzle_name, memory_model, loss_func) for puzzle_name in P_list)
         results = list(executor.map (findMin_helper_function_1, args, chunksize=chunk_size_heuristic))
+    print ("successfully executed parallelization to -- findArgMax_helper_1")
 
     indices = list (range (len (results)))
     indices.sort (key=lambda x: results[x][1])

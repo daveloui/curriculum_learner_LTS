@@ -1,6 +1,6 @@
 from multiprocessing import Lock
 from multiprocessing.managers import BaseManager
-from models.conv_net import ConvNet, TwoHeadedConvNet, HeuristicConvNet
+from models.conv_net import ConvNet, TwoHeadedConvNet
 
 
 class KerasModel ():

@@ -44,6 +44,10 @@ def parameter_parser():
                          dest='use_epsilon',
                          help='Threshold for training the NN -- if True, we train the NN as long as the loss < 0.1')
 
+    parser.add_argument ('-parall', action='store', default='1',
+                         dest='parallelize_with_NN',
+                         help='Are parallelizing any processes that use the NN?')
+
     parser.add_argument ('--default-heuristic', action='store_true', default=False,
                          dest='use_heuristic',
                          help='Use the default heuristic as input')

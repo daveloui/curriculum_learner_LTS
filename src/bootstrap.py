@@ -1,10 +1,12 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import time
 from os.path import join
 from concurrent.futures.process import ProcessPoolExecutor
 import heapq
 import math
 import numpy as np
+import tensorflow as tf
 
 np.random.seed (1)
 # random.seed (1)
@@ -215,6 +217,7 @@ class GBS:
 
 class Bootstrap:
     def __init__(self, states, output, scheduler, use_epsilon=False, ncpus=1, initial_budget=2000, gradient_steps=10):
+                 # parallelize_with_NN=True):
 
         self._states = states
         self._model_name = output
@@ -227,6 +230,7 @@ class Bootstrap:
         self._batch_size = 32
         self._kmax = 10
         self._scheduler = scheduler
+        # self._parallelize_with_NN = parallelize_with_NN
 
         self._all_puzzle_names = set (states.keys ())  ## FD what do we use this for?
         self._puzzle_dims = self._model_name.split ('-')[0]  # self._model_name has the form
@@ -259,273 +263,9 @@ class Bootstrap:
 
         return gbs.solve (nn_model, max_steps)
 
-    def _parallel_gbs(self, planner, nn_model):
-        schedulers = []
-
-        number_problems_per_cpu = math.ceil (self._number_problems / self._ncpus)
-
-        states = {}
-        counter_puzzles = 1
-        for id_puzzle, instance in self._states.items ():
-            if counter_puzzles > number_problems_per_cpu:
-                gbs = GBS (states, planner)
-                schedulers.append (gbs)
-                counter_puzzles = 0
-                states = {}
-
-            states[id_puzzle] = instance
-            counter_puzzles += 1
-
-        if counter_puzzles > 0:
-            gbs = GBS (states, planner)
-            schedulers.append (gbs)
-
-        #         print('Schedulers: ', schedulers)
-
-        number_problems_solved = 0
-        problems_solved_iteration = 0
-        total_expanded = 0
-        total_generated = 0
-
-        start = time.time ()
-        start_segment = start
-
-        iteration = 1
-
-        # while there are problems yet to be solved
-        while number_problems_solved < self._number_problems:
-
-            # invokes planning algorithm for solving the instance represented by node
-            with ProcessPoolExecutor (max_workers=self._ncpus) as executor:
-                args = ((gbs, nn_model, 10) for gbs in schedulers)
-                results = executor.map (self.map_function, args)
-
-            # collect the results of search for the states
-            schedulers = []
-            memory = Memory ()
-            for result in results:
-                memory.merge_trajectories (result[0])
-
-                total_expanded += result[1]
-                total_generated += result[2]
-
-                problems_solved_iteration += result[3]
-                number_problems_solved += result[3]
-
-                gbs = result[4]
-                schedulers.append (gbs)
-
-            print ('Total number of problems solved: ', number_problems_solved)
-
-            # if problems were solved in the previous batch, then use them to train the model
-            if memory.number_trajectories () > 0:
-                for _ in range (self._gradient_steps):
-                    # perform a number of gradient descent steps
-                    loss = nn_model.train_with_memory (memory)
-                    print (loss)
-                memory.clear ()
-                # saving the weights the latest neural model
-                nn_model.save_weights (join (self._models_folder, 'model_weights'))
-
-            # it will report in the log file every 30 minutes of search
-            end = time.time ()
-            if end - start_segment > 1800:
-                # readjusting elapsed time
-                start_segment = end
-
-                # logging details of the latest iteration
-                with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
-                    results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
-                                                                                       problems_solved_iteration,
-                                                                                       self._number_problems - number_problems_solved,
-                                                                                       total_expanded,
-                                                                                       total_generated,
-                                                                                       end - start)))
-                    results_file.write ('\n')
-
-                iteration += 1
-                problems_solved_iteration = 0
-
-    def _solve_gbs(self, planner, nn_model):
-
-        # counter for the number of iterations of the algorithm, which is marked by the number of times we train the model
-        iteration = 1
-
-        # number of problemsm solved in a given iteration of the procedure
-        number_solved = 0
-
-        # total number of nodes expanded
-        total_expanded = 0
-
-        # total number of nodes generated
-        total_generated = 0
-
-        # data structure used to store the solution trajectories
-        memory = Memory ()
-
-        # start timer for computing the running time of the iterations of the procedure
-        start = time.time ()
-        start_segment = start
-
-        # open list of the scheduler
-        open_list = []
-
-        # dictionary storing the problem instances to be solved
-        problems = {}
-        has_solved_problem = [None]
-
-        # populating the problems dictionary
-        id_puzzle = 1
-        for _, instance in self._states.items ():
-            problems[id_puzzle] = instance
-            id_puzzle += 1
-            has_solved_problem.append (False)
-
-            # create ProblemNode for the first puzzle in the list of puzzles to be solved
-        node = ProblemNode (1, 1, problems[1])
-
-        # insert such node in the open list
-        heapq.heappush (open_list, node)
-
-        # list containing all puzzles already solved
-        closed_list = set ()
-
-        # list of problems that will be solved in parallel
-        problems_to_solve = {}
-
-        # main loop of scheduler, iterate while there are problems still to be solved
-        while len (open_list) > 0 and len (closed_list) < self._number_problems:
-
-            # remove the first problem from the scheduler's open list
-            node = heapq.heappop (open_list)
-
-            # if the problem was already solved, then we bypass the solving part and
-            # add the children of this node into the open list.
-            if node.get_n () in closed_list:
-                # if not halted
-                if node.get_n () < self._number_problems:
-                    # if not solved, then reinsert the same node with a larger budget into the open list
-                    child = ProblemNode (node.get_k (),
-                                         node.get_n () + 1,
-                                         problems[node.get_n () + 1])
-                    heapq.heappush (open_list, child)
-
-                # if the first problem in the list then insert it with a larger budget
-                if node.get_n () == 1:
-                    # verifying whether there is a next puzzle in the list
-                    if node.get_k () + 1 < self._kmax:
-                        # create an instance of ProblemNode for the next puzzle in the list of puzzles.
-                        child = ProblemNode (node.get_k () + 1,
-                                             1,
-                                             problems[1])
-                        # add the node to the open list
-                        heapq.heappush (open_list, child)
-                continue
-
-            # append current node in the list of problems to be solved
-            problems_to_solve[node.get_n ()] = node
-
-            # is there are at least k problems we will attempt to solve them in parallel
-            if len (problems_to_solve) >= self._batch_size or len (open_list) == 0:
-                # invokes planning algorithm for solving the instance represented by node
-                with ProcessPoolExecutor (max_workers=self._ncpus) as executor:
-                    args = ((p.get_instance (), p.get_n (), p.get_budget (), nn_model) for _, p in
-                            problems_to_solve.items ())
-                    results = executor.map (planner.search_for_learning, args)
-
-                # collect the results of search for the states
-                for result in results:
-                    solved = result[0]
-                    trajectory = result[1]
-                    total_expanded += result[2]
-                    total_generated += result[3]
-                    puzzle_id = result[4]
-
-                    # if not halted
-                    if problems_to_solve[puzzle_id].get_n () < self._number_problems:
-                        # if not solved, then reinsert the same node with a larger budget into the open list
-                        child = ProblemNode (problems_to_solve[puzzle_id].get_k (),
-                                             puzzle_id + 1,
-                                             problems[puzzle_id + 1])
-                        heapq.heappush (open_list, child)
-
-                    if solved:
-                        # if it has solved, then add the puzzle's name to the closed list
-                        closed_list.add (puzzle_id)
-                        # store the trajectory as training data
-                        memory.add_trajectory (trajectory)
-                        # mark problem as solved
-                        has_solved_problem[puzzle_id] = True
-                        # increment the counter of problems solved, for logging purposes
-                        number_solved += 1
-
-                    # if this is the puzzle's first trial, then share its computational budget with the next puzzle in the list
-                    if puzzle_id == 1:
-                        # verifying whether there is a next puzzle in the list
-                        if problems_to_solve[puzzle_id].get_k () + 1 < self._kmax:
-                            # create an instance of ProblemNode for the next puzzle in the list of puzzles.
-                            child = ProblemNode (problems_to_solve[puzzle_id].get_k () + 1,
-                                                 1,
-                                                 problems[1])
-                            # add the node to the open list
-                            heapq.heappush (open_list, child)
-
-                # clear the problems to solve
-                problems_to_solve.clear ()
-
-                if memory.number_trajectories () > 0:
-                    # perform a number of gradient descent steps
-                    for _ in range (self._gradient_steps):
-                        loss = nn_model.train_with_memory (memory)
-                        print (loss)
-
-                    # remove current trajectories from memory
-                    memory.clear ()
-
-                    # saving the weights the latest neural model
-                    nn_model.save_weights (join (self._models_folder, 'model_weights'))
-
-            # if the number of attempts for solving problems is equal to the number of remaining problems and
-            # if the procedure solved problems a new problem, then perform learning
-            if time.time () - start_segment > 1800 and number_solved > 0:
-                # time required in this iteration of the algorithm
-                end = time.time ()
-
-                # readjusting elapsed time
-                start_segment = end
-
-                # logging details of the latest iteration
-                with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
-                    results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
-                                                                                       number_solved,
-                                                                                       self._number_problems - len (
-                                                                                           closed_list),
-                                                                                       total_expanded,
-                                                                                       total_generated,
-                                                                                       end - start)))
-                    results_file.write ('\n')
-
-                # set the number of problems solved and trials to zero and increment the iteration counter
-                number_solved = 0
-                iteration += 1
-
-                # if the system solves all instances and there are new instances to learn from, then log details and train the model
-        if number_solved > 0:
-            # time required in this iteration of the algorithm
-            end = time.time ()
-            # logging details of the latest iteration
-            with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
-                results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
-                                                                                   number_solved,
-                                                                                   self._number_problems - len (
-                                                                                       closed_list),
-                                                                                   total_expanded,
-                                                                                   total_generated,
-                                                                                   end - start)))
-                results_file.write ('\n')
-
     def _solve_uniform_online(self, planner, nn_model, parameters):
         print("inside _solve_uniform_online")
+        print("parallelize with NN? ", bool(int(parameters.parallelize_with_NN)))
         use_epsilon = bool(int(parameters.use_epsilon))
         print("use_epsilon =", use_epsilon)
         print("")
@@ -588,30 +328,44 @@ class Bootstrap:
                 # once we have self._batch_size puzzles in batch_problems, we look for their solutions and train NN
                 P = []
                 n_P = 0
-                with ProcessPoolExecutor (max_workers=self._ncpus) as executor:
-                    args = ((state, name, budget, nn_model) for name, state in batch_problems.items ())
-                    results = executor.map (planner.search_for_learning, args)
-                for result in results:
-                    has_found_solution = result[0]
-                    trajectory = result[1]  # the solution trajectory
-                    total_expanded += result[2]  # ??
-                    total_generated += result[3]  # ??
-                    puzzle_name = result[4]
+                if bool(int(parameters.parallelize_with_NN)):
+                    with ProcessPoolExecutor (max_workers=self._ncpus) as executor:
+                        args = ((state, name, budget, nn_model) for name, state in batch_problems.items ())
+                        results = executor.map (planner.search_for_learning, args)
+                    print("passed parallelization to search_for_learning")
+                    for result in results:
+                        has_found_solution = result[0]
+                        trajectory = result[1]  # the solution trajectory
+                        total_expanded += result[2]  # ??
+                        total_generated += result[3]  # ??
+                        puzzle_name = result[4]
 
-                    if has_found_solution:
-                        memory.add_trajectory (trajectory)  # stores trajectory object into a list (the list contains instances of the Trajectory class)
-                        # memory_v2.add_trajectory (trajectory, puzzle_name)
+                        if has_found_solution:
+                            memory.add_trajectory (trajectory)  # stores trajectory object into a list (the list contains instances of the Trajectory class)
+                            # memory_v2.add_trajectory (trajectory, puzzle_name)
 
-                    if has_found_solution and puzzle_name not in current_solved_puzzles:
-                        number_solved += 1
-                        current_solved_puzzles.add (puzzle_name)
-                        memory_v2.add_trajectory (trajectory, puzzle_name)  # TODO: we only capture the new solutions for new puzzles
-                        #TODO: this means that we would save the solutions found the first time they are solved (not the new solutions)
-                        P += [puzzle_name]  # only contains the names of puzzles that are recently solved
-                        # if a puzzle was solved before (under different weights, or a different budget), then we do not
-                        # add the puzzle to P
-                        n_P += 1
-                        at_least_one_got_solved = True
+                        if has_found_solution and puzzle_name not in current_solved_puzzles:
+                            number_solved += 1
+                            current_solved_puzzles.add (puzzle_name)
+                            memory_v2.add_trajectory (trajectory, puzzle_name)  # TODO: we only capture the new solutions for new puzzles
+                            #TODO: this means that we would save the solutions found the first time they are solved (not the new solutions)
+                            P += [puzzle_name]  # only contains the names of puzzles that are recently solved
+                            # if a puzzle was solved before (under different weights, or a different budget), then we do not
+                            # add the puzzle to P
+                            n_P += 1
+                else:
+                    for name, state in batch_problems.items ():
+                        args = (state, name, budget, nn_model)
+                        has_found_solution, trajectory, total_expanded, total_generated, puzzle_name = planner.search_for_learning(args)
+                        if has_found_solution:
+                            memory.add_trajectory (trajectory)
+
+                        if has_found_solution and puzzle_name not in current_solved_puzzles:
+                            number_solved += 1
+                            current_solved_puzzles.add (puzzle_name)
+                            memory_v2.add_trajectory (trajectory, puzzle_name)
+                            P += [puzzle_name]
+                            n_P += 1
 
             print("current_solved_puzzles", current_solved_puzzles)
             # assert n_P == number_solved
@@ -746,71 +500,7 @@ class Bootstrap:
             nn_model.save_weights (join(self._models_folder, "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
             memory_v2.save_data ()
 
-    def _solve_uniform(self, planner, nn_model):
-        iteration = 1
-        number_solved = 0
-        total_expanded = 0
-        total_generated = 0
-
-        budget = self._initial_budget
-        memory = Memory ()
-        start = time.time ()
-
-        current_solved_puzzles = set ()
-
-        while len (current_solved_puzzles) < self._number_problems:
-            number_solved = 0
-
-            with ProcessPoolExecutor (max_workers=self._ncpus) as executor:
-                args = ((state, name, budget, nn_model) for name, state in self._states.items ())
-                results = executor.map (planner.search_for_learning, args)
-            for result in results:
-                has_found_solution = result[0]
-                trajectory = result[1]
-                total_expanded += result[2]
-                total_generated += result[3]
-                puzzle_name = result[4]
-
-                if has_found_solution:
-                    memory.add_trajectory (trajectory)
-
-                if has_found_solution and puzzle_name not in current_solved_puzzles:
-                    number_solved += 1
-                    current_solved_puzzles.add (puzzle_name)
-
-            end = time.time ()
-            with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
-                results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
-                                                                                         number_solved,
-                                                                                         self._number_problems - len (
-                                                                                             current_solved_puzzles),
-                                                                                         budget,
-                                                                                         total_expanded,
-                                                                                         total_generated,
-                                                                                         end - start)))
-                results_file.write ('\n')
-
-            print ('Number solved: ', number_solved)
-            if number_solved > 0:
-                for _ in range (self._gradient_steps):
-                    loss = nn_model.train_with_memory (memory)
-                    print (loss)
-                memory.clear ()
-
-                nn_model.save_weights (join (self._models_folder, 'model_weights'))
-            else:
-                budget *= 2
-                print ('Budget: ', budget)
-                continue
-
-            iteration += 1
-
     def solve_problems(self, planner, nn_model, parameters):
-        if self._scheduler == 'gbs':
-            self._solve_gbs (planner, nn_model)
-        elif self._scheduler == 'online':
+        print("in bootstrap solve_problems -- now going to call _solve_uniform_online")
+        if self._scheduler == 'online':
             self._solve_uniform_online (planner, nn_model, parameters)
-        elif self._scheduler == 'pgbs':
-            self._parallel_gbs (planner, nn_model)
-        else:
-            self._solve_uniform (planner, nn_model)
