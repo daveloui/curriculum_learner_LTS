@@ -1,5 +1,5 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 import numpy as np
 from tensorflow import keras
@@ -160,7 +160,8 @@ class ConvNet (tf.keras.Model):
         # print ("len(self.weights) =", len (self.weights))
         # print ("summary for model we use for training", self.summary ())
 
-        self.optimizer = tf.keras.optimizers.Adam (learning_rate=0.0001)  #0.0001
+        # self.optimizer = tf.keras.optimizers.Adam (learning_rate=0.0001)  #0.0001
+        self.optimizer = tf.keras.optimizers.SGD (learning_rate=0.1)
 
         if loss_name == 'LevinLoss':
             self._loss_function = LevinLoss ()

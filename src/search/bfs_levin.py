@@ -1,5 +1,5 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import heapq
 import numpy as np
 import math
@@ -262,8 +262,8 @@ class BFSLevin ():
         Returns Boolean indicating whether the solution was found,
         number of nodes expanded, and number of nodes generated
         """
-        print("in search_for_learning, importing tensorflow")
-        import tensorflow as tf
+        # print("in search_for_learning, importing tensorflow")
+        # import tensorflow as tf
 
         state = data[0]
         puzzle_name = data[1]
@@ -320,7 +320,7 @@ class BFSLevin ():
                                        -1, a)
 
                 if child.is_solution ():
-                    print ('Solved puzzle: ', puzzle_name, ' expanding ', expanded, ' with budget: ', budget)
+                    # print ('Solved puzzle: ', puzzle_name, ' expanding ', expanded, ' with budget: ', budget)
                     trajectory = self._store_trajectory_memory (child_node, expanded)  # a trajectory object
                     return True, trajectory, expanded, generated, puzzle_name
 

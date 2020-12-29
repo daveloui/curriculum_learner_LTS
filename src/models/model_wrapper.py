@@ -32,7 +32,7 @@ class KerasModel ():
         return self.model.call(x)
 
     def train_with_memory(self, memory):
-        print ("inside model wrapper train with memory")
+        # print ("inside model wrapper train with memory")
         return self.model.train_with_memory (memory)
 
     def save_weights(self, filepath):

@@ -10,10 +10,15 @@ from concurrent.futures.process import ProcessPoolExecutor
 import argparse
 
 from bootstrap import Bootstrap
+from bootstrap_no_debug_data import Bootstrap_No_Debug
 from multiprocessing import set_start_method
 
 from game_state import GameState
 from parameter_parser import parameter_parser
+
+import tensorflow as tf
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+tf.debugging.set_log_device_placement (True)
 
 os.environ['PYTHONHASHSEED'] = str(1)
 
@@ -72,25 +77,24 @@ def main():
     It is possible to use this system to either train a new neural network model through the bootstrap system and
     Levin tree search (LTS) algorithm, or to use a trained neural network with LTS.
     """
-    import tensorflow as tf
-    # print ("inside main")
-    # if tf.test.gpu_device_name ():
-    #     print ('Default GPU Device:{}'.format (tf.test.gpu_device_name ()))
-    # else:
-    #     print ("Please install GPU version of TF")
-
-    physical_devices = tf.config.experimental.list_physical_devices ('GPU')
-    try:
-        tf.config.experimental.set_memory_growth (physical_devices[0], True)
-        print ("passed -- tf.config.experimental.set_memory_growth")
-    except:
-        # Invalid device or cannot modify virtual devices once initialized.
-        print ("did not pass -- tf.config.experimental.set_memory_growth")
-        pass
-
-
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     parameters = parameter_parser()
+    if bool(int(parameters.use_GPU)):
+        # print ("inside main")
+        # if tf.test.gpu_device_name ():
+        #     print ('Default GPU Device:{}'.format (tf.test.gpu_device_name ()))
+        # else:
+        #     print ("Please install GPU version of TF")
+        print ("")
+        physical_devices = tf.config.experimental.list_physical_devices ('GPU')
+        print ("Num GPUs Available: ", len (physical_devices))
+        try:
+            tf.config.experimental.set_memory_growth (physical_devices[0], True)
+            print ("passed -- tf.config.experimental.set_memory_growth")
+        except:
+            # Invalid device or cannot modify virtual devices once initialized.
+            print ("did not pass -- tf.config.experimental.set_memory_growth")
+            pass
+        print ("")
 
     states = {}
 
@@ -119,25 +123,32 @@ def main():
     with KerasManager () as manager:
 
         nn_model = manager.KerasModel ()
-        print("after nn_model = manager.KerasModel ()")
 
         bootstrap = None
 
         if parameters.learning_mode:
-            bootstrap = Bootstrap (states, parameters.model_name,
-                                   parameters.scheduler, bool(int(parameters.use_epsilon)),
-                                   ncpus=ncpus,
-                                   initial_budget=int (parameters.search_budget),
-                                   gradient_steps=int (parameters.gradient_steps))
-            print("created Bootstrap")
+            if parameters.debug_data:
+                bootstrap = Bootstrap (states, parameters.model_name,
+                                       parameters.scheduler,
+                                       bool (int (parameters.use_GPU)),
+                                       ncpus=ncpus,
+                                       initial_budget=int (parameters.search_budget),
+                                       gradient_steps=int (parameters.gradient_steps))
+            else:
+                bootstrap = Bootstrap_No_Debug (states, parameters.model_name,
+                                       parameters.scheduler,
+                                       bool (int (parameters.use_GPU)),
+                                       ncpus=ncpus,
+                                       initial_budget=int (parameters.search_budget),
+                                       gradient_steps=int (parameters.gradient_steps))
+
 
         if parameters.search_algorithm == 'Levin' or parameters.search_algorithm == 'LevinStar':
 
             if parameters.search_algorithm == 'Levin':
-                print("parameters.search_algorithm == Levin" is True)
                 bfs_planner = BFSLevin (parameters.use_heuristic, parameters.use_learned_heuristic, False, k_expansions,
                                         float (parameters.mix_epsilon))
-                print("created an instance bfs_planner")
+
             else:
                 bfs_planner = BFSLevin (parameters.use_heuristic, parameters.use_learned_heuristic, True, k_expansions,
                                         float (parameters.mix_epsilon))
@@ -145,20 +156,13 @@ def main():
             if parameters.use_learned_heuristic:
                 nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=True)
             else:
-                print("going to initialize NN")
                 nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=False)
-                print("finished initializing NNs")
 
             # If you are not loading data, you create the nn_folder.
             # Else, if you are loading data from a previous experiment, checkpoint_folder == 'path_to_save_ordering_and_model'
             if parameters.checkpoint:
                 # puzzle_dims = parameters.model_name.split ('-')[0]
-                print ("")
-                print ("parameters.use_epsilon", parameters.use_epsilon)
-                print ("")
-
-                nn_folder = 'trained_models_large/BreadthFS_' + parameters.model_name + "_" + "use_epsilon=" + str (
-                    bool (int (parameters.use_epsilon)))
+                nn_folder = 'trained_models_large/BreadthFS_' + parameters.model_name
                 path_to_retrieve_NN = os.path.abspath (nn_folder)
                 print ("path_to_retrieve_NN =", path_to_retrieve_NN)
                 nn_model.load_weights (join (path_to_retrieve_NN, "checkpointed_weights.h5"))

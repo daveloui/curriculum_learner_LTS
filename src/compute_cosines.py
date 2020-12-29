@@ -1,5 +1,5 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 from os.path import join
 import pickle
 import math
@@ -57,7 +57,7 @@ def check_if_data_saved(puzzle_dims):
 
 
 def store_batch_data_solved_puzzles(puzzles_list, memory_v2, puzzle_dims):
-    flatten_list = lambda l: [item for sublist in l for item in sublist]
+    # flatten_list = lambda l: [item for sublist in l for item in sublist]
 
     # TODO: should I save the np.array of images or data that can be used to gnerate the np.arrays?
     # print("store_or_retrieve_batch_data_solved_puzzles -- len(puzzles_list)", len(puzzles_list))
@@ -92,7 +92,6 @@ def store_batch_data_solved_puzzles(puzzles_list, memory_v2, puzzle_dims):
         os.makedirs (batch_folder, exist_ok=True)
     filename = 'Solved_Puzzles_Batch_Data'
     filename = os.path.join (batch_folder, filename + '.pkl')
-    print("len(d)", len(d))
     outfile = open (filename, 'ab')
     pickle.dump (d, outfile)
     outfile.close ()
@@ -235,7 +234,6 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="cosine_and
     denom = theta_diff_l2 * grads_P_l2
 
     cosine = dot_prod / denom.numpy()
-    print("got cosine and dot_prod")
     return cosine, dot_prod
 
 
@@ -274,13 +272,9 @@ def compute_cosines(batch_images_P, batch_actions_P, theta_model, models_folder,
 
 
 def findArgMax_helper_2 (results):  # results = (puzzle_name, log_frac, states_list, actions_list)
-    print("inside findArgMax_helper_2")
-    print("type(results) =", type(results))
-    print("results =", results)
     max_val = float ('-inf')
     argmax_p = None
     for result in results: # each result is a tuple
-        print("result", result)
         new_puzzle_name = result[0]
         dot_prod = result[1]
         if dot_prod > max_val:
@@ -290,9 +284,7 @@ def findArgMax_helper_2 (results):  # results = (puzzle_name, log_frac, states_l
 
 
 def findArgMax_helper_1(data):
-    import tensorflow as tf
-    print("inside findArgMax_helper_1 -- importing tensorflow")
-    # compute grads_c(p_i)
+    # import tensorflow as tf   # <--- Karim said that I might need this when parallelizing with tensorflow_gpu, but even with this, still didn't work.
     nn_model = data[0]
     puzzle_name = data[1]
     memory_model = data[2]
@@ -302,51 +294,49 @@ def findArgMax_helper_1(data):
     labels = memory_model.retrieve_labels (puzzle_name)  # np.array
     grads_p_i = get_grads_and_CEL_from_batch (state_images, labels, nn_model)
 
-
     dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "only_dot_prod")
     return puzzle_name, dot_prod
 
 
-def find_argmax(P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n_P):
-    print("")
-    print("inside find_argmax -- ", P_list)
-    s1 = time.time()
+def find_argmax(P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n_P, parallelize=True):
+    if parallelize:
+        chunk_size_heuristic = math.ceil(n_P / (ncpus * 4))
+        with ThreadPoolExecutor (max_workers=ncpus) as executor:
+            args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
+            results = list(executor.map (findArgMax_helper_1, args, chunksize=chunk_size_heuristic))
 
-    chunk_size_heuristic = math.ceil(n_P / (ncpus * 4))
-    with ThreadPoolExecutor (max_workers=ncpus) as executor:
-        args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
-        results = list(executor.map (findArgMax_helper_1, args, chunksize=chunk_size_heuristic))
-    print("successfully executed parallelization to -- findArgMax_helper_1")
-    e1 = time.time()
-    time_el1 = e1 - s1
-    # print("time_el1 =", time_el1)
-
-    # s2 = time.time()
     # with ThreadPoolExecutor (max_workers=ncpus) as executor:
     #     args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
     #     result_futures = list (map (lambda x: executor.submit (findArgMax_helper_1, x), args))
     #     results = [f.result () for f in concurrent.futures.as_completed (result_futures)]  # this is a list
-    # e2 = time.time()
-    # time_el2 = e2 - s2
-    # print("time_el2 =", time_el2)
-
+    else:
+        results = []
+        for puzzle_name in P_list:
+            arg = (nn_model, puzzle_name, memory_model, theta_diff)
+            puzzle_name, dot_prod = findArgMax_helper_1(arg)
+            results += [(puzzle_name, dot_prod)]
     argmax_p = findArgMax_helper_2 (results)
     return argmax_p
 
 
-def compute_rank (P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n_P):
-    print("inside compute rank")
-    chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
-    with ThreadPoolExecutor (max_workers=ncpus) as executor:
-        args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
-        results = list(executor.map (findArgMax_helper_1, args, chunksize=chunk_size_heuristic))
-    print ("successfully executed parallelization to -- findArgMax_helper_1")
+def compute_rank (P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n_P, parallelize=True):
+    if parallelize:
+        chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
+        with ThreadPoolExecutor (max_workers=ncpus) as executor:
+            args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
+            results = list(executor.map (findArgMax_helper_1, args, chunksize=chunk_size_heuristic))
+    else:
+        results = []
+        for puzzle_name in P_list:
+            arg = (nn_model, puzzle_name, memory_model, theta_diff)
+            puzzle_name, dot_prod = findArgMax_helper_1 (arg)
+            results += [(puzzle_name, dot_prod)]
+
     indices = list (range (len (results)))
     indices.sort (key=lambda x: results[x][1], reverse=True)
-    # print("sorted_indices", indices)
+
     R = [(None, 0.0)] * len (indices)  #R = []  # R = [(None, 0.0)] * len (indices)
     for i, x in enumerate (indices):
-        # print("results[x] =", results[x])
         R[i] = results[x][0]  #R.append(results[x][0])
     argmax_p = R[0]
     return argmax_p, R
@@ -377,21 +367,26 @@ def findMin_helper_function_1 (data):
     assert logits_preds.shape[0] == num_states
 
     aver_CEL = loss_func(labels, logits_preds)   # loss_func(labels, logits_preds) was previously defined as the average CEL!
-    CEL = num_states * aver_CEL
+    # CEL = num_states * aver_CEL
     levin_cost = log_d + (num_states * aver_CEL.numpy())  # if using way #1 --> log_frac = log_d - log_probs
     # aver_levin_cost = (1.0/num_states) * log_d + aver_CEL
 
     return puzzle_name, levin_cost  #, CEL, log_d
 
 
-def compute_rank_mins (P_list, nn_model, memory_model, ncpus, chunk_size, n_P):
-    print ("inside compute rank_mins")
-    chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
+def compute_rank_mins (P_list, nn_model, memory_model, ncpus, chunk_size, n_P, parallelize=True):
     loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
-    with ThreadPoolExecutor (max_workers=ncpus) as executor:
-        args = ((nn_model, puzzle_name, memory_model, loss_func) for puzzle_name in P_list)
-        results = list(executor.map (findMin_helper_function_1, args, chunksize=chunk_size_heuristic))
-    print ("successfully executed parallelization to -- findArgMax_helper_1")
+    if parallelize:
+        chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
+        with ThreadPoolExecutor (max_workers=ncpus) as executor:
+            args = ((nn_model, puzzle_name, memory_model, loss_func) for puzzle_name in P_list)
+            results = list(executor.map (findMin_helper_function_1, args, chunksize=chunk_size_heuristic))
+    else:
+        results = []
+        for puzzle_name in P_list:
+            arg = (nn_model, puzzle_name, memory_model, loss_func)
+            puzzle_name, levin_cost = findMin_helper_function_1 (arg)
+            results += [(puzzle_name, levin_cost)]
 
     indices = list (range (len (results)))
     indices.sort (key=lambda x: results[x][1])
@@ -408,7 +403,7 @@ def compute_levin_cost(P_batch_states, P_batch_actions, theta_model):
     # print("logits_preds.shape[0] =", logits_preds.shape[0])
     assert logits_preds.shape[0] == P_batch_states.shape[0]
 
-    aver_CEL = loss_func (P_batch_actions, logits_preds)  # used for training (this is the training loss)
+    aver_CEL = loss_func (P_batch_actions, logits_preds).numpy()  # used for training (this is the training loss)
     CEL = logits_preds.shape[0] * aver_CEL  # same as sum_probabilities
 
     len_trajectory = math.log(P_batch_states.shape[0])
@@ -422,10 +417,11 @@ def compute_levin_cost(P_batch_states, P_batch_actions, theta_model):
 
 def save_data_to_disk(data, filename):
     # np.save(filename, data)
-    if not os.path.exists (filename):
-        outfile = open (filename, 'wb')
-    else:
-        outfile = open (filename, 'ab')
+    outfile = open (filename, 'wb')
+    # if os.path.exists (filename):
+    #     outfile = open (filename, 'ab')
+    # else:
+    #     outfile = open (filename, 'wb')
     pickle.dump (data, outfile)
     outfile.close ()
 
@@ -441,13 +437,20 @@ def findMin_helper_function_2 (results):  # results = (puzzle_name, log_frac, st
     return argmin_p
 
 
-def find_minimum(P, theta_model, memory_model, ncpus, chunk_size, n_P):
+def find_minimum(P, theta_model, memory_model, ncpus, chunk_size, n_P, parallelize=True):
     loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
 
-    chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
-    with ProcessPoolExecutor (max_workers=ncpus) as executor:
-        args = ((theta_model, puzzle_name, memory_model, loss_func) for puzzle_name in P)
-        results = executor.map (findMin_helper_function_1, args, chunksize=chunk_size_heuristic)
+    if parallelize:
+        chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
+        with ProcessPoolExecutor (max_workers=ncpus) as executor:
+            args = ((theta_model, puzzle_name, memory_model, loss_func) for puzzle_name in P)
+            results = executor.map (findMin_helper_function_1, args, chunksize=chunk_size_heuristic)
+    else:
+        results = []
+        for puzzle_name in P_list:
+            arg = (theta_model, puzzle_name, memory_model, loss_func)
+            puzzle_name, levin_cost = findMin_helper_function_1 (arg)
+            results += [(puzzle_name, levin_cost)]
 
     argmin_p = findMin_helper_function_2 (results)
     assert argmin_p is not None

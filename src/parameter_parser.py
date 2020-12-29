@@ -24,7 +24,7 @@ def parameter_parser():
     parser.add_argument ('-b', action='store', dest='search_budget', default=1000,
                          help='The initial budget (nodes expanded) allowed to the bootstrap procedure')
 
-    parser.add_argument ('-g', action='store', dest='gradient_steps', default=10,
+    parser.add_argument ('-g', action='store', dest='gradient_steps', default=100,
                          help='Number of gradient steps to be performed in each iteration of the Bootstrap system')
 
     parser.add_argument ('-cpuct', action='store', dest='cpuct', default='1.0',
@@ -40,9 +40,9 @@ def parameter_parser():
     parser.add_argument ('-mix', action='store', dest='mix_epsilon', default='0.0',
                          help='Mixture with a uniform policy')
 
-    parser.add_argument ('-use_epsilon', action='store', default='0',
-                         dest='use_epsilon',
-                         help='Threshold for training the NN -- if True, we train the NN as long as the loss < 0.1')
+    parser.add_argument ('-use_GPU', action='store', default='0',
+                         dest='use_GPU',
+                         help='use GPUs?')
 
     parser.add_argument ('-parall', action='store', default='1',
                          dest='parallelize_with_NN',
@@ -66,6 +66,10 @@ def parameter_parser():
 
     parser.add_argument ('--learn', action='store_true', default=False,
                          dest='learning_mode',
+                         help='Train as neural model out of the instances from the problem folder')
+
+    parser.add_argument ('--debug_data', action='store_true', default=False,
+                         dest='debug_data',
                          help='Train as neural model out of the instances from the problem folder')
 
     # new parameters added:
