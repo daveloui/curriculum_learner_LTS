@@ -171,7 +171,6 @@ def retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2):
     all_images_list = []
     all_actions = []
 
-    # d = {}
     for puzzle_name in puzzles_list:
         images_p = []
         trajectory_p = memory_v2.trajectories_dict[puzzle_name]
@@ -186,20 +185,15 @@ def retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2):
         assert isinstance (images_p, np.ndarray)
 
         memory_v2.store_puzzle_images_actions (puzzle_name, images_p, actions_one_hot.numpy ())  # TODO: to be used by find min
-        # d[puzzle_name] = [images_p, actions_one_hot.numpy ()]
 
-        # print("images_p.shape", images_p.shape)
-        # print("actions_one_hot.shape", actions_one_hot.shape)
-        # assert False
-        # print("")
+        # TODO: the following used to be uncommented
+        # all_images_list.append (images_p)  # list of sublists; each sublists contain np.arrays
+        # # assert len (all_images_list) == len (all_actions)
+        # batch_images = np.vstack (all_images_list)
+        # batch_actions = np.vstack (all_actions)
+        # assert batch_images.shape[0] == batch_actions.shape[0]
 
-        all_images_list.append (images_p)  # list of sublists; each sublists contain np.arrays
-        # assert len (all_images_list) == len (all_actions)
-        batch_images = np.vstack (all_images_list)
-        batch_actions = np.vstack (all_actions)
-        assert batch_images.shape[0] == batch_actions.shape[0]
-
-    return batch_images, batch_actions
+    return         # TODO: the following used to be uncommented: batch_images, batch_actions
 
 
 def map_zero_denom (dot_prod_p_vs_T):
@@ -255,11 +249,10 @@ def get_grads_and_CEL_from_batch(array_images, array_labels, theta_model):
     return grads  # sum_loss_val, mean_loss_val, grads
 
 
-def compute_cosines(batch_images_P, batch_actions_P, theta_model, models_folder, parameters):
-    # print("inside compute cosines")
-    assert batch_images_P.shape[0] == batch_actions_P.shape[0]
+def compute_cosines(theta_model, models_folder): # TODO: inputs used to be: batch_images_P, batch_actions_P, theta_model, models_folder, parameters
+    # assert batch_images_P.shape[0] == batch_actions_P.shape[0] # TODO: used to be uncommented
 
-    grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model)  # _, _, last_grads_P
+    # grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model) # TODO: used to be uncommented  # _, _, last_grads_P
     theta_i = theta_model.retrieve_layer_weights()  # shape is (128, 4)
     theta_n, _ = retrieve_final_NN_weights(models_folder)
 
@@ -267,8 +260,8 @@ def compute_cosines(batch_images_P, batch_actions_P, theta_model, models_folder,
     theta_diff = [tf.math.subtract(a_i, b_i, name=None) for a_i, b_i in zip(theta_i, theta_n)]
     # assert len(theta_diff) == len(grads_P)
 
-    cosine, dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_P)
-    return cosine, dot_prod, theta_diff
+    # cosine, dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_P)
+    return theta_diff  # return cosine, dot_prod, theta_diff
 
 
 def findArgMax_helper_2 (results):  # results = (puzzle_name, log_frac, states_list, actions_list)
@@ -289,13 +282,14 @@ def findArgMax_helper_1(data):
     puzzle_name = data[1]
     memory_model = data[2]
     theta_diff = data[3]
+    # label = data[4]
 
     state_images = memory_model.retrieve_puzzle_images (puzzle_name)
     labels = memory_model.retrieve_labels (puzzle_name)  # np.array
     grads_p_i = get_grads_and_CEL_from_batch (state_images, labels, nn_model)
 
-    dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "only_dot_prod")
-    return puzzle_name, dot_prod
+    cosine, dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "cosine_and_dot_prod")
+    return puzzle_name, dot_prod, cosine
 
 
 def find_argmax(P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n_P, parallelize=True):
@@ -304,11 +298,6 @@ def find_argmax(P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n
         with ThreadPoolExecutor (max_workers=ncpus) as executor:
             args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
             results = list(executor.map (findArgMax_helper_1, args, chunksize=chunk_size_heuristic))
-
-    # with ThreadPoolExecutor (max_workers=ncpus) as executor:
-    #     args = ((nn_model, puzzle_name, memory_model, theta_diff) for puzzle_name in P_list)
-    #     result_futures = list (map (lambda x: executor.submit (findArgMax_helper_1, x), args))
-    #     results = [f.result () for f in concurrent.futures.as_completed (result_futures)]  # this is a list
     else:
         results = []
         for puzzle_name in P_list:
@@ -329,17 +318,32 @@ def compute_rank (P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size,
         results = []
         for puzzle_name in P_list:
             arg = (nn_model, puzzle_name, memory_model, theta_diff)
-            puzzle_name, dot_prod = findArgMax_helper_1 (arg)
-            results += [(puzzle_name, dot_prod)]
+            puzzle_name, dot_prod, cosine = findArgMax_helper_1 (arg)
+            results += [(puzzle_name, dot_prod, cosine)]
 
-    indices = list (range (len (results)))
-    indices.sort (key=lambda x: results[x][1], reverse=True)
+    indices_dot_prods = list (range (len (results)))
+    indices_dot_prods.sort (key=lambda x: results[x][1], reverse=True) # gets indices of sorted list results (sorted in descending order acc to dot_prods)
 
-    R = [(None, 0.0)] * len (indices)  #R = []  # R = [(None, 0.0)] * len (indices)
-    for i, x in enumerate (indices):
-        R[i] = results[x][0]  #R.append(results[x][0])
-    argmax_p = R[0]
-    return argmax_p, R
+    R_dot_prods = [(None, 0.0)] * len (indices_dot_prods)  #R = []
+    for i, x in enumerate (indices_dot_prods):
+        R_dot_prods[i] = results[x][:2]  #R.append(results[x][0])
+    argmax_p_dot_prods = R_dot_prods[0]
+    print("R_dot_prods", R_dot_prods)
+    print("argmax_dot_prods", argmax_p_dot_prods)
+
+    print("")
+    indices_cosines = list (range (len (results)))
+    indices_cosines.sort (key=lambda x: results[x][2], reverse=True) # gets indices of sorted list results (sorted in descending order acc to dot_prods)
+
+    R_cosines = [(None, 0.0)] * len (indices_cosines)  #R = []
+    for i, x in enumerate (indices_cosines):
+        R_cosines[i] = (results[x][0], results[x][2])  #R.append(results[x][0])
+        # R_cosines[i][1] = results[x][2]  # R.append(results[x][0])
+    argmax_p_cosines = R_cosines[0]
+    print("R_cosines", R_cosines)
+    print("argmax_cosines", argmax_p_cosines)
+
+    return argmax_p_dot_prods, R_dot_prods, argmax_p_cosines, R_cosines
 
 
 def findMin_helper_function_1 (data):
@@ -375,6 +379,7 @@ def findMin_helper_function_1 (data):
 
 
 def compute_rank_mins (P_list, nn_model, memory_model, ncpus, chunk_size, n_P, parallelize=True):
+    print("inside compute_rank_mins")
     loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
     if parallelize:
         chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
@@ -392,8 +397,10 @@ def compute_rank_mins (P_list, nn_model, memory_model, ncpus, chunk_size, n_P, p
     indices.sort (key=lambda x: results[x][1])
     R = [(None, 0.0)] * len (indices)  #R = []  # R = [(None, 0.0)] * len (indices)
     for i, x in enumerate (indices):
-        R[i] = results[x][0]  #R.append(results[x][0])
+        R[i] = results[x]  #R.append(results[x][0])
     argmin_p = R[0]
+    print("R", R)
+    print("argmin", argmin_p)
     return argmin_p, R
 
 
@@ -416,8 +423,9 @@ def compute_levin_cost(P_batch_states, P_batch_actions, theta_model):
 
 
 def save_data_to_disk(data, filename):
-    # np.save(filename, data)
-    outfile = open (filename, 'wb')
+    # outfile = open (filename, 'wb')
+    outfile = open (filename, 'ab')
+
     # if os.path.exists (filename):
     #     outfile = open (filename, 'ab')
     # else:

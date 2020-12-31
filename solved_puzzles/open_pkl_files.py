@@ -32,7 +32,12 @@ def open_pickle_file(filename):
     # print("")
     return objects
 
-object = open_pickle_file("puzzles_4x4/Rank_MaxDotProd_BFS_4x4")
+object = open_pickle_file("puzzles_4x4/Rank_MaxDotProd_BFS_4x4.pkl")
 print(type(object))
-print(len(object))
-print(object[:10])
+print(len(object[0]))
+# print(object)
+print("")
+object = open_pickle_file("puzzles_4x4/Ordering_BFS_4x4.pkl")
+print(type(object))
+print(len(object[0]))
+print(object)

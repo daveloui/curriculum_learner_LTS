@@ -112,9 +112,15 @@ class Bootstrap:
         # already_saved_data = check_if_data_saved (self._puzzle_dims) # -- checks if we already created the file
         # 'Solved_Puzzles_Batch_Data' and saved in the folder: batch_folder = 'solved_puzzles/' + puzzle_dims + "/"
 
+        ordering_dot_prods = []
         Rank_max_dot_prods = []
+        ordering_cosines = []
+        Rank_max_cosines = []
+
+        ordering_levin_scores = []
         Rank_min_costs = []
-        ordering = [] # TODO: only save a ordering if you solved all puzzles
+        indexes_rank_data = [0]
+
         memory = Memory ()
         memory_v2 = MemoryV2 (self._ordering_folder, self._puzzle_dims, "only_add_solutions_to_new_puzzles")
 
@@ -233,28 +239,37 @@ class Bootstrap:
                 # s_comp_debug_data = time.time()
                 # if self.use_GPUs:
                 # with tf.device ('/GPU:0'):
-                batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles (P, memory_v2)  # also stores images_P and actions_P in dictionary (for each puzzle)
+                retrieve_batch_data_solved_puzzles (P, memory_v2)  #TODO: used to return: batch_images_P, batch_actions_P
+                # retrieve_batch_data_solved_puzzles also stores images_P and actions_P in dictionary (for each puzzle)
 
-                # TODO: should we get rid of states, actions saved? I think so! Because after training, we might have new actions/states
-                cosine, dot_prod, theta_diff = compute_cosines (batch_images_P, batch_actions_P, nn_model,
-                                                                self._models_folder, parameters)
-                levin_cost, average_levin_cost, training_loss = compute_levin_cost (batch_images_P, batch_actions_P, nn_model)
-                argmax_p, Rank_sublist_max = compute_rank (P, nn_model, theta_diff, memory_v2, self._ncpus, 19, n_P, parallelize_with_NN)
-                _, Rank_sublist_min = compute_rank_mins (P, nn_model, memory_v2, self._ncpus, 19, n_P, parallelize_with_NN)  # How is the ordering different if we use argmin? How is the ranking different?
+                theta_diff = compute_cosines (nn_model, self._models_folder)  # used to return: cosine, dot_prod, theta_diff
+                # levin_cost, average_levin_cost, training_loss = compute_levin_cost (batch_images_P, batch_actions_P, nn_model)
 
-                self._cosine_data.append(cosine)
-                self._dot_prod_data.append(dot_prod)
-                self._levin_costs.append(levin_cost)
-                self._average_levin_costs.append(average_levin_cost)
-                self._training_losses.append(training_loss)
-                ordering.append(argmax_p)
-                Rank_max_dot_prods.append(Rank_sublist_max)
-                Rank_min_costs.append (Rank_sublist_min)
+                argmax_p_dot_prods, Rank_dot_prods, argmax_p_cosines, Rank_cosines = compute_rank (P, nn_model, theta_diff, memory_v2, self._ncpus, 19, n_P, parallelize_with_NN)
+
+                argmin_p_levin_score, Rank_levin_scores = compute_rank_mins (P, nn_model, memory_v2, self._ncpus, 19, n_P, parallelize_with_NN)  # How is the ordering different if we use argmin? How is the ranking different?
+
+                # self._cosine_data.append(cosine)
+                # self._dot_prod_data.append(dot_prod)
+                # self._levin_costs.append(levin_cost)
+                # self._average_levin_costs.append(average_levin_cost)
+                # self._training_losses.append(training_loss)
+
+                ordering_dot_prods.append(argmax_p_dot_prods)
+                Rank_max_dot_prods.append(Rank_dot_prods)
+                ordering_cosines.append(argmax_p_cosines)
+                Rank_max_cosines.append(Rank_cosines)
+
+                Rank_min_costs.append (Rank_levin_scores)
+                ordering_levin_scores.append (argmin_p_levin_score)
                 print ("len(P) =", len (P))
-                print("len (self._cosine_data) =", len(self._cosine_data))
+                print("len (ordering_dot_prods) =", len(ordering_dot_prods))
 
-                # e_comp_debug_data = time.time()
-                # print("time to compute debug data =", e_comp_debug_data - s_comp_debug_data)
+                idx = indexes_rank_data[-1]
+                indexes_rank_data.append(idx + n_P)
+                if indexes_rank_data[0] == 0:
+                    indexes_rank_data = indexes_rank_data[1:]
+                print ("indexes_rank_data", indexes_rank_data)
 
             print("")
             print("")
@@ -311,57 +326,46 @@ class Bootstrap:
             print("time for while-loop iter =", end_while - start_while)
             print("")
 
-            : += 1
             print("")
             # TODO: add breakpoint here -- save --  in current while loop iteration: -- pretend that the following will happen right before breakpoint
-            # TODO: for debug:
-            save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name + ".pkl"))
             # s_ckpt = time.time()
-            # if iteration % 2 == 0.0:  # 51 --> 50  iterations already happened
-            #     print("cosine_data[:10]", self._cosine_data[10*(iteration-1):(10*iteration)])
-            #     print("checkpoint current while loop data")
-            #     save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name + ".pkl"))
-            #     save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name + ".pkl"))
-            #     save_data_to_disk (self._levin_costs, join (self._log_folder, "levin_cost_data_" + self._model_name + ".pkl"))
-            #     save_data_to_disk (self._average_levin_costs, join (self._log_folder, "aver_levin_cost_data_" + self._model_name + ".pkl"))
-            #     save_data_to_disk (self._training_losses, join(self._log_folder, "training_loss_data_" + self._model_name + ".pkl"))
-            #     save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str (self._puzzle_dims) + ".pkl"))
-            #     save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str (self._puzzle_dims) + ".pkl"))
-            #     # TODO: get rid of the following (?):
-            #     save_data_to_disk (ordering, join (self._ordering_folder, 'Ordering_BFS_' + str (self._puzzle_dims) + ".pkl"))
-            #
-            #     # save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
-            #     nn_model.save_weights (join (self._models_folder, "checkpointed_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () == 0
-            #
-            #     # if we are checkpointing, then every 50 iterations, we terminate the program:
-            #     save_while_loop_state (self._puzzle_dims, iteration, total_expanded, total_generated, budget,
-            #                            current_solved_puzzles, last_puzzle, start, start_while)
-            #     if parameters.checkpoint:
-            #         break
-            #     # print("time to save all checkpointed data =", time.time() - s_ckpt)
-            #     self._cosine_data = []
-            #     self._dot_prod_data = []
-            #     self._levin_costs = []
-            #     self._average_levin_costs = []
-            #     self._training_losses = []
-            #     Rank_max_dot_prods = []
-            #     Rank_min_costs = []
-            #     ordering = []
-            #     print("")
+            if iteration % 1 == 0.0:  # iteration % i == 0 --> i-1 iterations already went through, because we start with i = 1
+                print("checkpoint current while loop data")
+                save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str (self._puzzle_dims) + ".pkl"))
+                save_data_to_disk (Rank_max_cosines, join (self._ordering_folder, 'Rank_MaxCosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
+                save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str (self._puzzle_dims) + ".pkl"))
+                save_data_to_disk (indexes_rank_data, join (self._ordering_folder, 'Idxs_rank_data_BFS_' + str (self._puzzle_dims) + ".pkl"))
+                save_data_to_disk (ordering_dot_prods, join (self._ordering_folder, 'Ordering_DotProds_BFS_' + str (self._puzzle_dims) + ".pkl"))
+                save_data_to_disk (ordering_cosines, join (self._ordering_folder, 'Ordering_Cosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
+                save_data_to_disk (ordering_levin_scores, join (self._ordering_folder, 'Ordering_LevinScores_BFS_' + str (self._puzzle_dims) + ".pkl"))
+                nn_model.save_weights (join (self._models_folder, "checkpointed_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () == 0
+
+                # if we are checkpointing, then every i iterations, we terminate the program:
+                save_while_loop_state (self._puzzle_dims, iteration, total_expanded, total_generated, budget,
+                                       current_solved_puzzles, last_puzzle, start, start_while)
+                if parameters.checkpoint:
+                    break
+                # print("time to save all checkpointed data =", time.time() - s_ckpt)
+
+                Rank_max_dot_prods = []
+                Rank_max_cosines = []
+                Rank_min_costs = []
+                indexes_rank_data = [0]
+                ordering_dot_prods = []
+                ordering_cosines = []
+                ordering_levin_scores = []
+                print("")
 
                 # TODO !!!! save_data_to_disk must use append mode, not write mode
         print("We are done if: len (current_solved_puzzles) == self._number_problems", len (current_solved_puzzles) == self._number_problems)
         if len (current_solved_puzzles) == self._number_problems: # and iteration % 2 != 0.0:
-            save_data_to_disk (self._cosine_data, join (self._log_folder, "cosine_data_" + self._model_name + ".pkl"))
-            save_data_to_disk (self._dot_prod_data, join (self._log_folder, "dot_prod_data_" + self._model_name + ".pkl"))
-            save_data_to_disk (self._levin_costs, join (self._log_folder, "levin_cost_data_" + self._model_name + ".pkl"))
-            save_data_to_disk (self._average_levin_costs, join (self._log_folder, "aver_levin_cost_data_" + self._model_name + ".pkl"))
-            save_data_to_disk (self._training_losses, join (self._log_folder, "training_loss_data_" + self._model_name + ".pkl"))
-            save_data_to_disk (ordering, join (self._ordering_folder, 'Ordering_BFS_' + str(self._puzzle_dims) + ".pkl"))
-            save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str(self._puzzle_dims) + ".pkl"))
-            save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str(self._puzzle_dims) + ".pkl"))
-            # save_data_to_disk (self._dict_cos, join (self._log_folder, "dict_times_puzzles_for_cosine_data_" + self._model_name))
-
+            save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (Rank_max_cosines, join (self._ordering_folder, 'Rank_MaxCosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (indexes_rank_data, join (self._ordering_folder, 'Idxs_rank_data_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (ordering_dot_prods, join (self._ordering_folder, 'Ordering_DotProds_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (ordering_cosines, join (self._ordering_folder, 'Ordering_Cosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (ordering_levin_scores, join (self._ordering_folder, 'Ordering_LevinScores_BFS_' + str (self._puzzle_dims) + ".pkl"))
             nn_model.save_weights (join(self._models_folder, "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
             # memory_v2.save_data ()
 
