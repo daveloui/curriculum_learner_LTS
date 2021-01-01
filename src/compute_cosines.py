@@ -328,10 +328,7 @@ def compute_rank (P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size,
     for i, x in enumerate (indices_dot_prods):
         R_dot_prods[i] = results[x][:2]  #R.append(results[x][0])
     argmax_p_dot_prods = R_dot_prods[0]
-    print("R_dot_prods", R_dot_prods)
-    print("argmax_dot_prods", argmax_p_dot_prods)
 
-    print("")
     indices_cosines = list (range (len (results)))
     indices_cosines.sort (key=lambda x: results[x][2], reverse=True) # gets indices of sorted list results (sorted in descending order acc to dot_prods)
 
@@ -340,8 +337,6 @@ def compute_rank (P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size,
         R_cosines[i] = (results[x][0], results[x][2])  #R.append(results[x][0])
         # R_cosines[i][1] = results[x][2]  # R.append(results[x][0])
     argmax_p_cosines = R_cosines[0]
-    print("R_cosines", R_cosines)
-    print("argmax_cosines", argmax_p_cosines)
 
     return argmax_p_dot_prods, R_dot_prods, argmax_p_cosines, R_cosines
 
@@ -379,7 +374,6 @@ def findMin_helper_function_1 (data):
 
 
 def compute_rank_mins (P_list, nn_model, memory_model, ncpus, chunk_size, n_P, parallelize=True):
-    print("inside compute_rank_mins")
     loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
     if parallelize:
         chunk_size_heuristic = math.ceil (n_P / (ncpus * 4))
@@ -399,8 +393,7 @@ def compute_rank_mins (P_list, nn_model, memory_model, ncpus, chunk_size, n_P, p
     for i, x in enumerate (indices):
         R[i] = results[x]  #R.append(results[x][0])
     argmin_p = R[0]
-    print("R", R)
-    print("argmin", argmin_p)
+
     return argmin_p, R
 
 
@@ -423,8 +416,8 @@ def compute_levin_cost(P_batch_states, P_batch_actions, theta_model):
 
 
 def save_data_to_disk(data, filename):
-    # outfile = open (filename, 'wb')
-    outfile = open (filename, 'ab')
+    outfile = open (filename, 'wb')
+    # outfile = open (filename, 'ab')
 
     # if os.path.exists (filename):
     #     outfile = open (filename, 'ab')

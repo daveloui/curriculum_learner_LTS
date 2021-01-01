@@ -63,15 +63,14 @@ class Bootstrap:
         self._ncpus = ncpus
         self._initial_budget = initial_budget
         self._gradient_steps = gradient_steps
-        #         self._k = ncpus * 3
-        self._batch_size = 32  # TODO: fix debug
+
+        self._batch_size = 32
         self._kmax = 10
         self._scheduler = scheduler
         # self._parallelize_with_NN = parallelize_with_NN
 
         self._all_puzzle_names = set (states.keys ())  ## FD what do we use this for?
-        self._puzzle_dims = self._model_name.split ('-')[0]  # self._model_name has the form
-        # '<puzzle dimension>-<problem domain>-<loss name>'
+        self._puzzle_dims = self._model_name.split ('-')[0]  # self._model_name has the form '<puzzle dimension>-<problem domain>-<loss name>'
 
         self._log_folder = 'logs_large/' + self._puzzle_dims  #+ "_debug_data"
         self._models_folder = 'trained_models_large/BreadthFS_' + self._model_name  #+ "_debug_data"
@@ -86,12 +85,11 @@ class Bootstrap:
         if not os.path.exists (self._ordering_folder):
             os.makedirs (self._ordering_folder, exist_ok=True)
 
-        self._cosine_data = []
-        self._dot_prod_data = []
-        # self._dict_cos = {}
-        self._levin_costs = []
-        self._average_levin_costs = []
-        self._training_losses = []
+        # self._cosine_data = []
+        # self._dot_prod_data = []
+        # self._levin_costs = []
+        # self._average_levin_costs = []
+        # self._training_losses = []
         self.use_GPUs = use_GPUs
 
     def map_function(self, data):
@@ -141,8 +139,10 @@ class Bootstrap:
                 = restore_while_loop_state(self._puzzle_dims) # TODO: only need to restore before while loop starts.
             # #TODO: because: pretend that program ends at end of while loop iteration -- then we need to just go through the inside of loop, as we would have without breakpoint
 
-        # t_cos = -1
         print ("")
+        # # TODO: debug
+        # already_skipped = False
+        # # end debug
         while len (current_solved_puzzles) < self._number_problems:
             number_solved = 0
             batch_problems = {}
@@ -169,7 +169,6 @@ class Bootstrap:
 
                 j += 1
                 num_states_still_to_try_to_solve = self._number_problems - (j * self._batch_size)
-
                 # once we have self._batch_size puzzles in batch_problems, we look for their solutions and train NN
 
                 if parallelize_with_NN:
@@ -184,6 +183,12 @@ class Bootstrap:
                         total_expanded += result[2]  # ??
                         total_generated += result[3]  # ??
                         puzzle_name = result[4]
+                        # print("puzzle name", puzzle_name)
+                        # # TODO: for debug:
+                        # if '2x2_' in name and not already_skipped:
+                        #     already_skipped = True
+                        #     continue
+                        # # end debug
 
                         if has_found_solution:
                             memory.add_trajectory (trajectory)  # stores trajectory object into a list (the list contains instances of the Trajectory class)
@@ -236,7 +241,6 @@ class Bootstrap:
             # I think this is fine. Otherwise, if P += [puzzle_name] was in the first "if statement", then we would be
             # computing the cosines of all puzzles (whether they were solved previously or not)
             if n_P > 0:
-                # s_comp_debug_data = time.time()
                 # if self.use_GPUs:
                 # with tf.device ('/GPU:0'):
                 retrieve_batch_data_solved_puzzles (P, memory_v2)  #TODO: used to return: batch_images_P, batch_actions_P
@@ -326,35 +330,35 @@ class Bootstrap:
             print("time for while-loop iter =", end_while - start_while)
             print("")
 
-            print("")
-            # TODO: add breakpoint here -- save --  in current while loop iteration: -- pretend that the following will happen right before breakpoint
-            # s_ckpt = time.time()
-            if iteration % 1 == 0.0:  # iteration % i == 0 --> i-1 iterations already went through, because we start with i = 1
-                print("checkpoint current while loop data")
-                save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str (self._puzzle_dims) + ".pkl"))
-                save_data_to_disk (Rank_max_cosines, join (self._ordering_folder, 'Rank_MaxCosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
-                save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str (self._puzzle_dims) + ".pkl"))
-                save_data_to_disk (indexes_rank_data, join (self._ordering_folder, 'Idxs_rank_data_BFS_' + str (self._puzzle_dims) + ".pkl"))
-                save_data_to_disk (ordering_dot_prods, join (self._ordering_folder, 'Ordering_DotProds_BFS_' + str (self._puzzle_dims) + ".pkl"))
-                save_data_to_disk (ordering_cosines, join (self._ordering_folder, 'Ordering_Cosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
-                save_data_to_disk (ordering_levin_scores, join (self._ordering_folder, 'Ordering_LevinScores_BFS_' + str (self._puzzle_dims) + ".pkl"))
-                nn_model.save_weights (join (self._models_folder, "checkpointed_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () == 0
-
-                # if we are checkpointing, then every i iterations, we terminate the program:
-                save_while_loop_state (self._puzzle_dims, iteration, total_expanded, total_generated, budget,
-                                       current_solved_puzzles, last_puzzle, start, start_while)
-                if parameters.checkpoint:
-                    break
-                # print("time to save all checkpointed data =", time.time() - s_ckpt)
-
-                Rank_max_dot_prods = []
-                Rank_max_cosines = []
-                Rank_min_costs = []
-                indexes_rank_data = [0]
-                ordering_dot_prods = []
-                ordering_cosines = []
-                ordering_levin_scores = []
-                print("")
+            # print("")
+            # # TODO: add breakpoint here -- save --  in current while loop iteration: -- pretend that the following will happen right before breakpoint
+            # # s_ckpt = time.time()
+            # # if iteration % 1 == 0.0:  # iteration % i == 0 --> i-1 iterations already went through, because we start with i = 1
+            # print("checkpoint current while loop data")
+            # save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder, 'Rank_MaxDotProd_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            # save_data_to_disk (Rank_max_cosines, join (self._ordering_folder, 'Rank_MaxCosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            # save_data_to_disk (Rank_min_costs, join (self._ordering_folder, 'Rank_MinLevinCost_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            # save_data_to_disk (indexes_rank_data, join (self._ordering_folder, 'Idxs_rank_data_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            # save_data_to_disk (ordering_dot_prods, join (self._ordering_folder, 'Ordering_DotProds_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            # save_data_to_disk (ordering_cosines, join (self._ordering_folder, 'Ordering_Cosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            # save_data_to_disk (ordering_levin_scores, join (self._ordering_folder, 'Ordering_LevinScores_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            # nn_model.save_weights (join (self._models_folder, "checkpointed_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () == 0
+            #
+            # # if we are checkpointing, then every i iterations, we terminate the program:
+            # save_while_loop_state (self._puzzle_dims, iteration, total_expanded, total_generated, budget,
+            #                        current_solved_puzzles, last_puzzle, start, start_while)
+            # if parameters.checkpoint:
+            #     break
+            # # print("time to save all checkpointed data =", time.time() - s_ckpt)
+            #
+            # Rank_max_dot_prods = []
+            # Rank_max_cosines = []
+            # Rank_min_costs = []
+            # indexes_rank_data = [0]
+            # ordering_dot_prods = []
+            # ordering_cosines = []
+            # ordering_levin_scores = []
+            # print("")
 
                 # TODO !!!! save_data_to_disk must use append mode, not write mode
         print("We are done if: len (current_solved_puzzles) == self._number_problems", len (current_solved_puzzles) == self._number_problems)
