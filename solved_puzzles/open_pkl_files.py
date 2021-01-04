@@ -33,12 +33,6 @@ def open_pickle_file(filename):
 flatten_list = lambda l: [item for sublist in l for item in sublist]
 
 
-# Step 1: open object, check size and type
-print("Rank_MaxDotProd_BFS_4x4.pkl")
-object = open_pickle_file("puzzles_4x4/Rank_MaxDotProd_BFS_4x4.pkl")
-# print(type(object))
-print(len(object[0]))
-
 # verify total number of puzzles, check that flattened list maintains first and last puzzles
 # first_last_puzzles = []
 # for sublist in object:
@@ -72,7 +66,7 @@ print(len(object[0]))
 
 
 def plot_data(list_values, idxs_new_puzzles, title_name, filename_to_save_fig, special_x, special_y,
-              x_label="Puzzles Solved", y_lim_upper=None, y_lim_lower=None, x_max=2400, x_min=-5):
+              x_label="Number of Puzzles Solved", y_lim_upper=None, y_lim_lower=None, x_max=2400, x_min=-5):
     plt.figure ()
     for xc in idxs_new_puzzles:
         plt.axvline (x=xc, c='orange', linestyle='--', alpha=0.6)
@@ -92,7 +86,6 @@ def plot_data(list_values, idxs_new_puzzles, title_name, filename_to_save_fig, s
     plt.savefig (filename_to_save_fig)
     # plt.close ()
 
-    string_list = filename_to_save_fig.split("plots/")
     print(title_name)
     if "Levin Cost" in title_name:
         zoomed_title = "Zoomed Levin Cost"
@@ -101,6 +94,7 @@ def plot_data(list_values, idxs_new_puzzles, title_name, filename_to_save_fig, s
     else:
         zoomed_title = "Zoomed " + title_name
 
+    string_list = filename_to_save_fig.split ("plots/")
     zoomed_filename_to_save_fig = string_list[0] + "plots/" + "Zoom_" + string_list[1]
     print("zoomed_filename_to_save_fig", zoomed_filename_to_save_fig)
     plt.xlim(xmin=2200, xmax=2375)
@@ -138,29 +132,46 @@ def find_special_vals(loaded_object):
     return None, None
 
 
-
 print("Idxs_rank_data_BFS_4x4.pkl")
 idx_object = open_pickle_file("puzzles_4x4/Idxs_rank_data_BFS_4x4.pkl")
 print(len(idx_object[0]))
 print("")
 
+puzzles_path = os.path.join (os.path.dirname (os.path.realpath (__file__)), "puzzles_4x4/puzzle_imgs")
+print ("puzzle images path =", puzzles_path)
+if not os.path.exists (puzzles_path):
+    os.makedirs (puzzles_path, exist_ok=True)
 
-d = {}
+witness_puzzle = WitnessPuzzle ()
+
 plots_path = os.path.join (os.path.dirname (os.path.realpath (__file__)), "puzzles_4x4/plots")
 print ("plots_path =", plots_path)
 if not os.path.exists (plots_path):
     os.makedirs (plots_path, exist_ok=True)
 
+d = {}
 for file in os.listdir('puzzles_4x4/'):
+    print("")
     if "Rank_" in file:
         full_filename = 'puzzles_4x4/' + file
         object = open_pickle_file(full_filename)
+        print("len(obj)", len(object[0]))
         flat = flatten_list(flatten_list(object))
         assert len (flat) == 2369
         list_names, list_vals = separate_names_and_vals(flat)
 
         special_x, special_y = find_special_vals (object)
         d = get_witness_ordering(flat, d)
+
+        for i, sub_sublist in enumerate(object[0]):
+            print("len(sub_sublist) =", len(sub_sublist))
+            for tuple_el in sub_sublist:
+                p_name = tuple_el[0]
+                if "wit" in p_name:
+                    print("pname ", p_name, " found in sublist ", i)
+            # print("")
+        print("")
+        continue  # TODO: debug -- uncomment
 
         if "DotProd" in file:
             title_name = "grad_c(p) * (theta_n - theta_i)"
@@ -174,40 +185,28 @@ for file in os.listdir('puzzles_4x4/'):
         print("plots_filename", plots_filename)
 
         plot_data(list_vals, idx_object[0], title_name, plots_filename, special_x, special_y)
+    # continue # TODO: debug -- uncomment
 
     elif "Ordering" in file:
-        full_filename = 'puzzles_4x4/' + file
-        print("file", full_filename)
-        object = open_pickle_file(full_filename)
-        print("len(ordering object)", len(object))
-        print(object)
+        object = open_pickle_file('puzzles_4x4/' + file)
+        print("len(ordering object)", len(object[0]))
+        print(object[0])
         print("")
+
+        filename = file.split("_BFS")[0]
+        print ("filename", filename)
+        imgs_path = os.path.join (os.path.dirname (os.path.realpath (__file__)), puzzles_path)
+        print ("specific images path =", imgs_path)
+        if not os.path.exists (imgs_path):
+            os.makedirs (imgs_path, exist_ok=True)
+
+        for tup in object[0]:
+            p_name = tup[0]
+            witness_puzzle.read_state ("../problems/witness/puzzles_4x4/" + p_name)
+            img_file = os.path.join(imgs_path, p_name + ".png")
+            print("img file", img_file)
+            witness_puzzle.save_figure (img_file)
 
 print("")
 print("d", d)
 print("")
-
-
-# print("")
-# print("Ordering_DotProds_BFS_4x4.pkl")
-# object = open_pickle_file("puzzles_4x4/Ordering_DotProds_BFS_4x4.pkl")
-# print(type(object))
-# print(len(object[0]))
-# print(object)
-#
-
-
-#
-# # print("")
-# # print("Rank_MinLevinCost_BFS_4x4.pkl")
-# # object = open_pickle_file("puzzles_4x4/Rank_MinLevinCost_BFS_4x4.pkl")
-# # print(type(object))
-# # print(len(object[0]))
-# # print(object[0][0][0:20])
-#
-# print("")
-# print("Ordering_LevinScores_BFS_4x4.pkl")
-# object = open_pickle_file("puzzles_4x4/Ordering_LevinScores_BFS_4x4.pkl")
-# print(type(object))
-# print(len(object[0]))
-# print(object)
