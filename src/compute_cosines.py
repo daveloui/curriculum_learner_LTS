@@ -231,10 +231,14 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="cosine_and
     return cosine, dot_prod
 
 
-def retrieve_final_NN_weights(models_folder, weights_filename="pretrained_weights.h5"):
-    # create toy NN:
-    new_model = TempConvNet((2, 2), 32, 4, 'CrossEntropyLoss')
+def retrieve_final_NN_weights(models_folder, iter): #, weights_filename="pretrained_weights.h5"): # TODO: now we must include the iteration number in the weights
+
+    # Note: if we are in iteration i, that means that the file pretrained_weights_i.h5 contains the weights AFTER training, saved in iteration i
+    weights_filename = "pretrained_weights_" + str(iter) + ".h5"
     full_filename = join (models_folder, weights_filename)
+    print("full filename for saved pretrained weights", full_filename)
+    # create toy NN:
+    new_model = TempConvNet ((2, 2), 32, 4, 'CrossEntropyLoss')
     new_model.load_weights(full_filename)
     theta_n = new_model.retrieve_layer_weights()
     return theta_n, new_model
@@ -249,12 +253,12 @@ def get_grads_and_CEL_from_batch(array_images, array_labels, theta_model):
     return grads  # sum_loss_val, mean_loss_val, grads
 
 
-def compute_cosines(theta_model, models_folder): # TODO: inputs used to be: batch_images_P, batch_actions_P, theta_model, models_folder, parameters
+def compute_cosines(theta_model, models_folder, iter): # TODO: inputs used to be: batch_images_P, batch_actions_P, theta_model, models_folder, parameters
     # assert batch_images_P.shape[0] == batch_actions_P.shape[0] # TODO: used to be uncommented
 
     # grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model) # TODO: used to be uncommented  # _, _, last_grads_P
     theta_i = theta_model.retrieve_layer_weights()  # shape is (128, 4)
-    theta_n, _ = retrieve_final_NN_weights(models_folder)
+    theta_n, _ = retrieve_final_NN_weights(models_folder, iter)
 
     # assert len (theta_i) == len (theta_n) == len (grads_P)
     theta_diff = [tf.math.subtract(a_i, b_i, name=None) for a_i, b_i in zip(theta_i, theta_n)]
