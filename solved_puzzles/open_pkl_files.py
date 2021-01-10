@@ -136,12 +136,17 @@ for file in os.listdir('puzzles_4x4/'):
         full_filename = 'puzzles_4x4/' + file
         object = open_pickle_file(full_filename)
         print ("rank filename", file)
+        L = []
         if "DotProd" in file:  # "Cosine" in file or
             for i, sublist in enumerate(object[0]):
                 print("rank sublist length", len(sublist))
                 if i == 1:
-                    print(sublist)
+                    for tup in sublist:
+                        p_name = tup[0]
+                        L.append(p_name)
         # print("len(obj)", len(object[0]))
+            print("L", L)
+            print("len(L)", len(L))
             assert False
         flat = flatten_list(flatten_list(object))
         assert len (flat) == 2369

@@ -136,6 +136,10 @@ class MemoryV2 ():
         # added:
         self.trajectories_dict[puzzle_name] = trajectory_obj
 
+    def add_trajectory_debug(self, states, actions):
+        pass
+
+
     def save_trajectories_dict(self):
         new_dict = {}
         for k, v in self.trajectories_dict.items():
