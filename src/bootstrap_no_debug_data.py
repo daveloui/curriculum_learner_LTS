@@ -272,17 +272,17 @@ class Bootstrap_No_Debug:
 
             iteration += 1
             # TODO: add breakpoint here -- save --  in current while loop iteration: -- pretend that the following will happen right before breakpoint
-            if iteration % 1 == 0.0:  # 51 --> 50  iterations already happened
-                nn_model.save_weights (join (self._models_folder,
-                                             "checkpointed_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () == 0
-                save_while_loop_state (self._puzzle_dims, iteration, total_expanded, total_generated, budget,
-                                       current_solved_puzzles, last_puzzle, start, start_while)
-                if parameters.checkpoint:
-                    break
+            # if iteration % 1 == 0.0:  # 51 --> 50  iterations already happened
+            #     nn_model.save_weights (join (self._models_folder,
+            #                                  "checkpointed_weights.h5"))  # TODO: we need to do this in case memory.number_trajectories () == 0
+            #     save_while_loop_state (self._puzzle_dims, iteration, total_expanded, total_generated, budget,
+            #                            current_solved_puzzles, last_puzzle, start, start_while)
+            #     if parameters.checkpoint:
+            #         break
 
         print ("len (current_solved_puzzles) == self._number_problems",
                len (current_solved_puzzles) == self._number_problems)
-        if len (current_solved_puzzles) == self._number_problems and iteration % 5 != 0.0:
+        if len (current_solved_puzzles) == self._number_problems: # and iteration % 5 != 0.0:
             nn_model.save_weights (join (self._models_folder,
                                          "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
             memory_v2.save_data ()
