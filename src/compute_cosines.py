@@ -221,7 +221,6 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="cosine_and
     assert theta_diff.shape[0] == grads_P.shape
 
     dot_prod = tf.tensordot (theta_diff, grads_P, 1).numpy ()
-    print("dot prod computed successfully")
     if label == "only_dot_prod":
         return dot_prod
 
@@ -296,7 +295,6 @@ def findArgMax_helper_1(data):
     state_images = memory_model.retrieve_puzzle_images (puzzle_name)
     labels = memory_model.retrieve_labels (puzzle_name)  # np.array
     grads_p_i = get_grads_and_CEL_from_batch (state_images, labels, nn_model)
-    print("got grads_p_i successfully")
 
     cosine, dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "cosine_and_dot_prod")
     return puzzle_name, dot_prod, cosine

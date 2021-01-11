@@ -8,9 +8,12 @@ import heapq
 import math
 import numpy as np
 import tensorflow as tf
+import random
 
+random.seed (1)
 np.random.seed (1)
-# random.seed (1)
+tf.random.set_seed (1)
+
 
 from models.memory import Memory, MemoryV2
 from compute_cosines import retrieve_batch_data_solved_puzzles, check_if_data_saved, retrieve_all_batch_images_actions, \
@@ -226,7 +229,6 @@ class Bootstrap_No_Debug:
             print ("finished training -----------")
             print ("")
             print ("")
-
             end = time.time ()
             # with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
             #     results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,

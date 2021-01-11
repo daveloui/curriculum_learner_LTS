@@ -8,9 +8,12 @@ import heapq
 import math
 import numpy as np
 import tensorflow as tf
+import random
 
+random.seed (1)
 np.random.seed (1)
-# random.seed (1)
+tf.random.set_seed (1)
+
 
 from models.memory import Memory, MemoryV2
 from compute_cosines import retrieve_batch_data_solved_puzzles, check_if_data_saved, retrieve_all_batch_images_actions, \
@@ -111,12 +114,10 @@ class Bootstrap:
         # step 1: check if we have already stored the solution trajectories and images of all the puzzles
         # already_saved_data = check_if_data_saved (self._puzzle_dims) # -- checks if we already created the file
         # 'Solved_Puzzles_Batch_Data' and saved in the folder: batch_folder = 'solved_puzzles/' + puzzle_dims + "/"
-
         ordering_dot_prods = []
         Rank_max_dot_prods = []
         ordering_cosines = []
         Rank_max_cosines = []
-
         ordering_levin_scores = []
         Rank_min_costs = []
         indexes_rank_data = [0]
@@ -279,13 +280,13 @@ class Bootstrap:
                 Rank_min_costs.append (Rank_levin_scores)
                 ordering_levin_scores.append (argmin_p_levin_score)
                 print ("len(P) =", len (P))
+                print("while_loop_iter =", while_loop_iter)
                 print ("len (ordering_dot_prods) =", len (ordering_dot_prods))
 
                 idx = indexes_rank_data[-1]
                 indexes_rank_data.append (idx + n_P)
                 if indexes_rank_data[0] == 0:
                     indexes_rank_data = indexes_rank_data[1:]
-                print ("indexes_rank_data", indexes_rank_data)
 
             print ("")
             print ("")
@@ -309,7 +310,6 @@ class Bootstrap:
             # either we solved at least one puzzle with current budget, or 0 puzzles with current budget.
             # if we did solve at east one of the self._batch_size puzzles puzzles in the batch, then we train the NN
             # self._gradient_steps times with however many puzzles solved
-
             end = time.time ()
             # with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
             #     results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
