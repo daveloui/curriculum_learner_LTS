@@ -95,9 +95,22 @@ def separate_names_and_vals(flat_list):
 
 
 def find_special_vals(loaded_object):
-    for sublist in loaded_object[0]:
-        pass
+    # for sublist in loaded_object[0]:
+    #     pass
     return None, None
+
+
+def map_witness_puzzles_to_dims(name):
+    if (name == "witness_1") or (name == "witness_2"):
+        return "1x2"
+    elif name == "witness_3":
+        return "1x3"
+    elif name == "witness_4":
+        return "2x2"
+    elif (name == "witness_5") or (name == "witness_6"):
+        return "3x3"
+    elif (name == "witness_7") or (name == "witness_8") or (name == "witness_9"):
+        return "4x4"
 
 
 print("Idxs_rank_data_BFS_4x4.pkl")
@@ -128,14 +141,8 @@ for file in os.listdir('puzzles_4x4/'):
     full_filename = 'puzzles_4x4/' + file
     if "Idxs" in file or file == "BFS_memory_4x4.pkl" or ".py" in file:
         continue
-    # if os.path.isfile(full_filename):
-    #     print("full_filename", full_filename)
-    #     object = open_pickle_file (full_filename)
-        # assert len(object) == 1
-        # print ("type", type (object[0][0][0]))
-        # for sublist in object[0]:
-        #     print("len(sublist) =", len(sublist))
 
+    some_dict = {}  # TODO: debug
     if "Rank_" in file:
         full_filename = 'puzzles_4x4/' + file
         object = open_pickle_file(full_filename)
@@ -143,72 +150,100 @@ for file in os.listdir('puzzles_4x4/'):
         if "DotProd" in file:
             print("file", file)
             object[0][1] = Rank_DotProds
-            for sublist in object[0]:
-                print("len(sublist) =", len(sublist))
-        elif "Cosine" in file:
-            print("file", file)
-            object[0][1] = Rank_Cosines
-            for sublist in object[0]:
-                print("len(sublist) =", len(sublist))
+            total = 0
+            for i, sublist in enumerate(object[0]):
+                sublist_dict = {"1x2": 0, "1x3": 0, "2x2": 0, "3x3": 0, "4x4": 0, "w": []}
+                L = len(sublist)
+                print("len(sublist) =", L)
+                total += L
+                # TODO:
+                for tup_item in sublist:
+                    name = tup_item[0]
+                    if "1x2" in name:
+                        sublist_dict["1x2"] += 1
+                    elif "1x3" in name:
+                        sublist_dict["1x3"] += 1
+                    elif "2x2" in name:
+                        sublist_dict["2x2"] += 1
+                    elif "3x3" in name:
+                        sublist_dict["3x3"] += 1
+                    elif "4x4" in name:
+                        sublist_dict["4x4"] += 1
+                    else:
+                        new_name = map_witness_puzzles_to_dims(name)
+                        sublist_dict[new_name] += 1
+                        sublist_dict['w'] += [name]
+                some_dict["sublist_" + str(i)] = sublist_dict
+            print("some_dict =", some_dict)
+            print("")
+            print("total", total)
+            print("")
 
-        flat = flatten_list(flatten_list(object))
-        assert len (flat) == 2369
-        list_names, list_vals = separate_names_and_vals(flat)
+            # assert False
+    #
+    #     elif "Cosine" in file:
+    #         print("file", file)
+    #         object[0][1] = Rank_Cosines
+    #         for sublist in object[0]:
+    #             print("len(sublist) =", len(sublist))
+    #
+    #     flat = flatten_list(flatten_list(object))
+    #     assert len (flat) == 2369
+    #     list_names, list_vals = separate_names_and_vals(flat)
+    #
+    #      d = get_witness_ordering (flat, d)
+    #     # special_x, special_y = find_special_vals (object)  # we don't use this at all
+    #     # for i, sub_sublist in enumerate(object[0]):
+    #     #     print("len(sub_sublist) =", len(sub_sublist))
+    #     #     for tuple_el in sub_sublist:
+    #     #         p_name = tuple_el[0]
+    #     #         if "wit" in p_name:
+    #     #             print("pname ", p_name, " found in sublist ", i)
+    #     print("")
+    #     # continue  # TODO: debug -- uncomment
+    #
+    #     if "DotProd" in file:
+    #         title_name = "grad_c(p) * (theta_{t+1} - theta_t)"
+    #         # sublist = d[file]
+    #     elif "Cosine" in file:
+    #         title_name = "cosine(angle(grad_c(p), (theta_{t+1} - theta_t)))"
+    #     else:
+    #         title_name = "Levin Cost"
+    #
+    #     plots_filename = os.path.join(plots_path, "Zoomed_" + file.split("_BFS_4x4.pkl")[0])
+    #     print("plots_filename", plots_filename)
+    #
+    #     special_x = None
+    #     special_y = None
+    #     plot_data(list_vals, idx_object[0], title_name, plots_filename, special_x, special_y)
+    # # continue # TODO: debug -- uncomment
+    #
+    # elif "Ordering" in file:
+    #     object = open_pickle_file('puzzles_4x4/' + file)
+    #     if "DorProds" in file:
+    #         object[0][1] = argmax_p_DotProds
+    #     elif "Cosines" in file:
+    #         object[0][1] = argmax_p_Cosines
+    #     # print("len(ordering object)", len(object[0]))
+    #     print ("ordering filename", file)
+    #     print(object)
+    #     print("")
+    #
+    #     # continue
+    #     filename = file.split("_BFS")[0]
+    #     print ("filename", filename)
+    #     imgs_path = os.path.join (os.path.dirname (os.path.realpath (__file__)), puzzles_path)
+    #     print ("specific images path =", imgs_path)
+    #     if not os.path.exists (imgs_path):
+    #         os.makedirs (imgs_path, exist_ok=True)
+    #
+    #     for tup in object[0]:
+    #         p_name = tup[0]
+    #         witness_puzzle.read_state ("../problems/witness/puzzles_4x4/" + p_name)
+    #         img_file = os.path.join(imgs_path, p_name + ".png")
+    #         print("img file", img_file)
+    #         witness_puzzle.save_figure (img_file)
 
-        # special_x, special_y = find_special_vals (object)  # we don't use this at all
-        d = get_witness_ordering(flat, d)
-
-        # for i, sub_sublist in enumerate(object[0]):
-        #     print("len(sub_sublist) =", len(sub_sublist))
-        #     for tuple_el in sub_sublist:
-        #         p_name = tuple_el[0]
-        #         if "wit" in p_name:
-        #             print("pname ", p_name, " found in sublist ", i)
-        print("")
-        # continue  # TODO: debug -- uncomment
-
-        if "DotProd" in file:
-            title_name = "grad_c(p) * (theta_{t+1} - theta_t)"
-            # sublist = d[file]
-        elif "Cosine" in file:
-            title_name = "cosine(angle(grad_c(p), (theta_{t+1} - theta_t)))"
-        else:
-            title_name = "Levin Cost"
-
-        plots_filename = os.path.join(plots_path, "Zoomed_" + file.split("_BFS_4x4.pkl")[0])
-        print("plots_filename", plots_filename)
-
-        special_x = None
-        special_y = None
-        plot_data(list_vals, idx_object[0], title_name, plots_filename, special_x, special_y)
-    # continue # TODO: debug -- uncomment
-
-    elif "Ordering" in file:
-        object = open_pickle_file('puzzles_4x4/' + file)
-        if "DorProds" in file:
-            object[0][1] = argmax_p_DotProds
-        elif "Cosines" in file:
-            object[0][1] = argmax_p_Cosines
-        # print("len(ordering object)", len(object[0]))
-        print ("ordering filename", file)
-        print(object)
-        print("")
-
-        # continue
-        filename = file.split("_BFS")[0]
-        print ("filename", filename)
-        imgs_path = os.path.join (os.path.dirname (os.path.realpath (__file__)), puzzles_path)
-        print ("specific images path =", imgs_path)
-        if not os.path.exists (imgs_path):
-            os.makedirs (imgs_path, exist_ok=True)
-
-        for tup in object[0]:
-            p_name = tup[0]
-            witness_puzzle.read_state ("../problems/witness/puzzles_4x4/" + p_name)
-            img_file = os.path.join(imgs_path, p_name + ".png")
-            print("img file", img_file)
-            witness_puzzle.save_figure (img_file)
-
-print("")
-print("d", d)
-print("")
+# print("")
+# print("d", d)
+# print("")

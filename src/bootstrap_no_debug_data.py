@@ -57,7 +57,7 @@ class ProblemNode:
 
 
 class Bootstrap_No_Debug:
-    def __init__(self, states, output, scheduler, use_GPUs=False, ncpus=1, initial_budget=2000, gradient_steps=10):
+    def __init__(self, states, output, scheduler, use_GPUs=False, ncpus=1, initial_budget=1, gradient_steps=10):
         # parallelize_with_NN=True):
 
         self._states = states
@@ -208,39 +208,28 @@ class Bootstrap_No_Debug:
 
                 batch_problems.clear ()
 
-            print ("time for for loop to go over all puzzles =", time.time () - s_for_loop)
-            print ("len(current_solved_puzzles)", len (current_solved_puzzles), " current_solved",
-                   current_solved_puzzles)
             print ("")
             print ("")
             print ("NOW TRAINING -----------------")
             # with tf.device ('/GPU:0'):
             if memory.number_trajectories () > 0:
-                epsilon = 0.1
+                # epsilon = 0.1
                 for _ in range (self._gradient_steps):
                     loss = nn_model.train_with_memory (memory)
                     print ('Loss: ', loss)
-                    if loss < epsilon:
-                        break
+                    # if loss < epsilon:
+                    #     break
                 memory.clear ()
                 nn_model.save_weights (
-                    join (self._models_folder, "pretrained_weights_" + str (while_loop_iter) + ".h5"))  # while_loop_iter
-                while_loop_iter += 1  # TODO: remove later
+                    join (self._models_folder, "pretrained_weights_" + str (while_loop_iter) + ".h5"))
+                while_loop_iter += 1
+                print("saved trained NN weights with while_loop_iter idx =", while_loop_iter)
+                print("updated while_loop_iter idx to =", while_loop_iter)
             print ("finished training -----------")
             print ("")
-            print ("")
             end = time.time ()
-            # with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
-            #     results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (iteration,
-            #                                                                              number_solved,
-            #                                                                              self._number_problems - len (
-            #                                                                                  current_solved_puzzles),
-            #                                                                              budget,
-            #                                                                              total_expanded,
-            #                                                                              total_generated,
-            #                                                                              end - start)))
-            #     results_file.write ('\n')
 
+            print("value of while_loop_iter to go in training_bootstrap =", while_loop_iter)
             with open (join (self._log_folder, 'training_bootstrap_' + self._model_name), 'a') as results_file:
                 results_file.write (("{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format (while_loop_iter,
                                                                                                iteration,
@@ -254,11 +243,9 @@ class Bootstrap_No_Debug:
 
             print ('Number solved: ', number_solved, ' Number still to solve', self._number_problems -
                    len (current_solved_puzzles))
-            # d[budget] += 1
             if number_solved == 0:
                 budget *= 2
                 print ('Budget: ', budget)
-                # d[budget] = 1
                 continue
 
             unsolved_puzzles = self._all_puzzle_names.difference (current_solved_puzzles)
@@ -286,7 +273,7 @@ class Bootstrap_No_Debug:
                len (current_solved_puzzles) == self._number_problems)
         if len (current_solved_puzzles) == self._number_problems: # and iteration % 5 != 0.0:
             nn_model.save_weights (join (self._models_folder,
-                                         "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
+                                         "Final_weights_NoDebug.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
             memory_v2.save_data ()
 
     def solve_problems(self, planner, nn_model, parameters):

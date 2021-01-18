@@ -136,58 +136,131 @@ def open_pickle_file(filename):
     openfile.close ()
     return objects
 
-flatten_list = lambda l: [item for sublist in l for item in sublist]
+# flatten_list = lambda l: [item for sublist in l for item in sublist]
 
 
-file = "solved_puzzles/puzzles_4x4_theta_n-theta_i/BFS_memory_4x4.pkl"
-object = open_pickle_file(file)
-print("len(obj dict)", len(object[0]))
-print("len", len(list(object[0].values())))
+def flatten_list(array, dim, shape_tup=None):
+    if dim == 1:
+        flatten_list_v0 = lambda l: [item for item in l]
+        new_list = flatten_list_v0(array)
+    elif dim == 2:
+        flatten_list_v2 = lambda l: [item for sublist in l for item in sublist]
+        new_list = flatten_list_v2 (array)
+    elif dim == 3:
+        flatten_list_v3 = lambda l: [item for sublist_d0 in l for sublist_d1 in sublist_d0 for item in sublist_d1]
+        new_list = flatten_list_v3(array)
+    elif dim == 4:
+        flatten_list_v4 = lambda l: [item for sublist_d0 in l for sublist_d1 in sublist_d0 for sublist_d2 in sublist_d1 for item in sublist_d2]
+        new_list = flatten_list_v4(array)
+    else:
+        print("Not valid")
+    return new_list
 
-d = {}
-for k, v_list_p in object[0].items():
-    if k in P:
-        states_list = v_list_p[1]
-        actions_list = v_list_p[2]
-        d[k] = [states_list, actions_list]
-        # print("len(v_list_p)", len(v_list_p))
-        # print("number of states", len(states_list))
-        # print("")
-assert P == list(d.keys())
+# file = "solved_puzzles/puzzles_4x4_theta_n-theta_i/BFS_memory_4x4.pkl"
+# object = open_pickle_file(file)
+# print("len(obj dict)", len(object[0]))
+# print("len", len(list(object[0].values())))
+#
+# d = {}
+# for k, v_list_p in object[0].items():
+#     if k in P:
+#         states_list = v_list_p[1]
+#         actions_list = v_list_p[2]
+#         d[k] = [states_list, actions_list]
+#         # print("len(v_list_p)", len(v_list_p))
+#         # print("number of states", len(states_list))
+#         # print("")
+# assert P == list(d.keys())
 
 
 models_folder = 'trained_models_large/BreadthFS_4x4-Witness-CrossEntropyLoss/'
-puzzle_dims = '4x4'
-ordering_folder = 'solved_puzzles/puzzles_' + puzzle_dims  # + "_debug_data"
+# puzzle_dims = '4x4'
+# ordering_folder = 'solved_puzzles/puzzles_' + puzzle_dims  # + "_debug_data"
 
 KerasManager.register ('KerasModel', KerasModel)
 with KerasManager () as manager:
     nn_model = manager.KerasModel ()
     nn_model.initialize ("CrossEntropyLoss", "Levin", two_headed_model=False)
-    nn_weights_file = "trained_models_large/BreadthFS_4x4-Witness-CrossEntropyLoss/pretrained_weights_2.h5"
+    nn_weights_file = "trained_models_large/BreadthFS_4x4-Witness-CrossEntropyLoss/pretrained_weights_10.h5"
     nn_model.load_weights (nn_weights_file)
     theta_i = nn_model.retrieve_layer_weights ()
 
-    theta_diff = compute_cosines (nn_model, models_folder, 3)
-    print(type(theta_diff))
+    theta_diff, theta_i_prime, theta_n = compute_cosines (nn_model, models_folder, None, True)
 
-    memory_v2 = MemoryV2 (ordering_folder, puzzle_dims, "only_add_solutions_to_new_puzzles")
-    print("")
-    print("calling retrieve_batch_data_solved_puzzles")
-    retrieve_batch_data_solved_puzzles (d, memory_v2)
+    print("type(theta_diff)", type(theta_diff))
+    print("type(theta_i) =", type(theta_i))
+    print("type(theta_i_prime)", type(theta_i_prime))
+    print("type(theta_n)", type(theta_n))
 
-    argmax_p_dot_prods, Rank_dot_prods, argmax_p_cosines, Rank_cosines = compute_rank (P, nn_model, theta_diff,
-                                                                                       memory_v2, 4, 1, 1, False)
+    list_theta_n = []
+    list_theta_i = []
+    num_weights_j = 0
+    num_weights_i = 0
+    for j, sublist_j in enumerate(theta_n):
+        sublist_j_array = sublist_j.numpy()
+        num_items = np.prod(sublist_j_array.shape)
+        dims = len (sublist_j_array.shape)
+        print ("num_items in subarray", num_items)
+        print ("dims of sublist_j_array =", dims)
 
-    print("argmax_p_dot", argmax_p_dot_prods)
-    print("Rank_DP", Rank_dot_prods)
-    print("argmax_cosines", argmax_p_cosines)
-    print("Rank cosines", Rank_cosines)
+        sublist_j_list = sublist_j_array.tolist()
+        flat_j = flatten_list(sublist_j_list, dims)
+        assert len(flat_j) == num_items
+        print("len(flat_j)", len(flat_j))
+
+        num_weights_j += len(flat_j)
+        list_theta_n.append(flat_j)
+
+
+        sublist_i_array = theta_i[j].numpy()
+        num_items = np.prod (sublist_i_array.shape)
+        dims = len (sublist_i_array.shape)
+        print ("num_items in subarray", num_items)
+        print ("dims of sublist_i_array =", dims)
+
+        sublist_i_list = sublist_i_array.tolist ()
+        flat_i = flatten_list (sublist_i_list, dims)
+        assert len (flat_i) == num_items
+        print ("len(flat_i)", len (flat_i))
+
+        list_theta_i.append(flat_i)
+        # num_weights_i += len(flat_i)
+
+        assert (flat_j == flat_i)
+
+
+
+
+    #
+    #     # print(type(sublist_j[0]))
+    #     # print(sublist_j[0].shape)
+    #
+    #     print(" ")
+    # print(len(list_theta_n))
+    # flat_theta_n = flatten_list(list_theta_n)
+    # print(len(flat_theta_n))
+    # print(num_weights)
+
+
+
+    # memory_v2 = MemoryV2 (ordering_folder, puzzle_dims, "only_add_solutions_to_new_puzzles")
+    # print("")
+    # print("calling retrieve_batch_data_solved_puzzles")
+    # retrieve_batch_data_solved_puzzles (d, memory_v2)
+    #
+    # argmax_p_dot_prods, Rank_dot_prods, argmax_p_cosines, Rank_cosines = compute_rank (P, nn_model, theta_diff,
+    #                                                                                    memory_v2, 4, 1, 1, False)
+    #
+    # print("argmax_p_dot", argmax_p_dot_prods)
+    # print("Rank_DP", Rank_dot_prods)
+    # print("argmax_cosines", argmax_p_cosines)
+    # print("Rank cosines", Rank_cosines)
+
+
+
 
 
 # theta_diff = compute_cosines (nn_model, self._models_folder, while_loop_iter)
-
-
 
 
 # def store_puzzle_images_and_depths(S, T, memory, checkpoint_folder, subfolder_to_save_ordering, parameters, ncpus=None):

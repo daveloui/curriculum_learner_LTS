@@ -186,14 +186,14 @@ def retrieve_batch_data_solved_puzzles(puzzles_list, memory_v2):
 
         memory_v2.store_puzzle_images_actions (puzzle_name, images_p, actions_one_hot.numpy ())  # TODO: to be used by find min
 
-        # TODO: the following used to be uncommented
-        # all_images_list.append (images_p)  # list of sublists; each sublists contain np.arrays
-        # # assert len (all_images_list) == len (all_actions)
-        # batch_images = np.vstack (all_images_list)
-        # batch_actions = np.vstack (all_actions)
-        # assert batch_images.shape[0] == batch_actions.shape[0]
+        # TODO: the following used to be commented
+        all_images_list.append (images_p)  # list of sublists; each sublists contain np.arrays
+        # assert len (all_images_list) == len (all_actions)
+        batch_images = np.vstack (all_images_list)
+        batch_actions = np.vstack (all_actions)
+        assert batch_images.shape[0] == batch_actions.shape[0]
 
-    return         # TODO: the following used to be uncommented: batch_images, batch_actions
+    return batch_images, batch_actions         # TODO: the following used to be commented: batch_images, batch_actions
 
 
 def map_zero_denom (dot_prod_p_vs_T):
@@ -206,7 +206,7 @@ def map_zero_denom (dot_prod_p_vs_T):
     return cosine
 
 
-def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="cosine_and_dot_prod"):
+def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="all_metrics"):
     # grads_P is a list of tensors
     # print("")
     # print("inside compute_and_save_cosines_helper_func")
@@ -225,22 +225,32 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="cosine_and
         return dot_prod
 
     theta_diff_l2 = tf.norm (theta_diff, ord=2)
+    new_metric = dot_prod / theta_diff_l2.numpy ()
+
     grads_P_l2 = tf.norm (grads_P, ord=2)
-    denom = theta_diff_l2 * grads_P_l2
+    denom_cosine = theta_diff_l2 * grads_P_l2
+    cosine = dot_prod / denom_cosine.numpy()
 
-    cosine = dot_prod / denom.numpy()
-    if denom == 0.0:
-        print("encountered a zero denominator!")
+    if denom_cosine == 0.0:
+        print("encountered a zero cosine-denominator!")
         print("cosine =", cosine)
-    return cosine, dot_prod
+
+    if theta_diff_l2.numpy () == 0.0:
+        print("encountered a zero new_metric-denominator!")
+        print("new_metric =", new_metric)
+
+    return cosine, dot_prod, new_metric
 
 
-def retrieve_final_NN_weights(models_folder, iter): #, weights_filename="pretrained_weights.h5"): # TODO: now we must include the iteration number in the weights
+def retrieve_final_NN_weights(models_folder, iter=None): #, weights_filename="pretrained_weights.h5"): # TODO: now we must include the iteration number in the weights
 
     # Note: if we are in iteration i, that means that the file pretrained_weights_i.h5 contains the weights AFTER training, saved in iteration i
-    weights_filename = "pretrained_weights_" + str(iter) + ".h5"
+    if iter is None:
+        weights_filename = "Final_weights.h5"  # "pretrained_weights_" + str(iter) + ".h5"
+    else:
+        weights_filename = "pretrained_weights_" + str(iter) + ".h5"
     full_filename = join (models_folder, weights_filename)
-    print("full filename for saved pretrained weights", full_filename)
+    print("full filename for saved pretrained or Final weights", full_filename)
     # create toy NN:
     new_model = TempConvNet ((2, 2), 32, 4, 'CrossEntropyLoss')
     new_model.load_weights(full_filename)
@@ -257,19 +267,22 @@ def get_grads_and_CEL_from_batch(array_images, array_labels, theta_model):
     return grads  # sum_loss_val, mean_loss_val, grads
 
 
-def compute_cosines(theta_model, models_folder, iter): # TODO: inputs used to be: batch_images_P, batch_actions_P, theta_model, models_folder, parameters
-    # assert batch_images_P.shape[0] == batch_actions_P.shape[0] # TODO: used to be uncommented
+def compute_cosines(theta_model, models_folder, iter=None, debugging=False, batch_images_P=None, batch_actions_P=None):
+    # TODO: inputs used to be: batch_images_P, batch_actions_P, theta_model, models_folder, parameters
 
-    # grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model) # TODO: used to be uncommented  # _, _, last_grads_P
     theta_i = theta_model.retrieve_layer_weights()  # shape is (128, 4)
     theta_n, _ = retrieve_final_NN_weights(models_folder, iter)
+    theta_diff = [tf.math.subtract (a_i, b_i, name=None) for a_i, b_i in zip (theta_i, theta_n)]
 
-    # assert len (theta_i) == len (theta_n) == len (grads_P)
-    theta_diff = [tf.math.subtract(a_i, b_i, name=None) for a_i, b_i in zip(theta_i, theta_n)]
-    # assert len(theta_diff) == len(grads_P)
+    if (batch_actions_P is not None) and (batch_images_P is not None):
+        grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model) # TODO: used to be uncommented  # _, _, last_grads_P
+        cosine_P, dot_prod_P, new_metric_P = compute_and_save_cosines_helper_func (theta_diff, grads_P)
+        assert len (theta_i) == len (theta_n) == len (grads_P)
+        assert len (theta_diff) == len (grads_P)
 
-    # cosine, dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_P)
-    return theta_diff  # return cosine, dot_prod, theta_diff
+    if not debugging:
+        return cosine_P, dot_prod_P, new_metric_P, theta_diff
+    return theta_diff, theta_i, theta_n  # return cosine, dot_prod, theta_diff
 
 
 def findArgMax_helper_2 (results):  # results = (puzzle_name, log_frac, states_list, actions_list)
@@ -296,8 +309,8 @@ def findArgMax_helper_1(data):
     labels = memory_model.retrieve_labels (puzzle_name)  # np.array
     grads_p_i = get_grads_and_CEL_from_batch (state_images, labels, nn_model)
 
-    cosine, dot_prod = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "cosine_and_dot_prod")
-    return puzzle_name, dot_prod, cosine
+    cosine, dot_prod, new_metric = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "cosine_and_dot_prod")
+    return puzzle_name, dot_prod, cosine, new_metric
 
 
 def find_argmax(P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size, n_P, parallelize=True):
@@ -326,27 +339,34 @@ def compute_rank (P_list, nn_model, theta_diff, memory_model, ncpus, chunk_size,
         results = []
         for puzzle_name in P_list:
             arg = (nn_model, puzzle_name, memory_model, theta_diff)
-            puzzle_name, dot_prod, cosine = findArgMax_helper_1 (arg)
-            results += [(puzzle_name, dot_prod, cosine)]
+            puzzle_name, dot_prod, cosine, new_metric = findArgMax_helper_1 (arg)
+            results += [(puzzle_name, dot_prod, cosine, new_metric)]
 
     indices_dot_prods = list (range (len (results)))
     indices_dot_prods.sort (key=lambda x: results[x][1], reverse=True) # gets indices of sorted list results (sorted in descending order acc to dot_prods)
-
     R_dot_prods = [(None, 0.0)] * len (indices_dot_prods)  #R = []
     for i, x in enumerate (indices_dot_prods):
         R_dot_prods[i] = results[x][:2]  #R.append(results[x][0])
     argmax_p_dot_prods = R_dot_prods[0]
 
-    indices_cosines = list (range (len (results)))
-    indices_cosines.sort (key=lambda x: results[x][2], reverse=True) # gets indices of sorted list results (sorted in descending order acc to dot_prods)
 
-    R_cosines = [(None, 0.0)] * len (indices_cosines)  #R = []
+    indices_cosines = list (range (len (results)))
+    indices_cosines.sort (key=lambda x: results[x][2], reverse=True) # gets indices of sorted list results (sorted in descending order)
+    R_cosines = [(None, 0.0)] * len (indices_cosines)
     for i, x in enumerate (indices_cosines):
         R_cosines[i] = (results[x][0], results[x][2])  #R.append(results[x][0])
         # R_cosines[i][1] = results[x][2]  # R.append(results[x][0])
     argmax_p_cosines = R_cosines[0]
 
-    return argmax_p_dot_prods, R_dot_prods, argmax_p_cosines, R_cosines
+
+    indices_new_metric = list (range (len (results)))
+    indices_new_metric.sort (key=lambda x: results[x][3], reverse=True) # gets indices of sorted list results (sorted in descending order)
+    R_new_metric = [(None, 0.0)] * len (indices_new_metric)
+    for i, x in enumerate (indices_new_metric):
+        R_new_metric[i] = (results[x][0], results[x][3])
+    argmax_p_new_metric = R_new_metric[0]
+
+    return argmax_p_dot_prods, R_dot_prods, argmax_p_cosines, R_cosines, argmax_p_new_metric, R_new_metric
 
 
 def findMin_helper_function_1 (data):

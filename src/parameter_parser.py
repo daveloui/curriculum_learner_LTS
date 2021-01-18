@@ -21,7 +21,7 @@ def parameter_parser():
     parser.add_argument ('-d', action='store', dest='problem_domain',
                          help='Problem domain (Witness or SlidingTile)')
 
-    parser.add_argument ('-b', action='store', dest='search_budget', default=1000,
+    parser.add_argument ('-b', action='store', dest='search_budget', default=1,
                          help='The initial budget (nodes expanded) allowed to the bootstrap procedure')
 
     parser.add_argument ('-g', action='store', dest='gradient_steps', default=100,
