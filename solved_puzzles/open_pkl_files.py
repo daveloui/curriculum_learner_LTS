@@ -114,7 +114,7 @@ def map_witness_puzzles_to_dims(name):
 
 
 print("Idxs_rank_data_BFS_4x4.pkl")
-idx_object = open_pickle_file("puzzles_4x4/Idxs_rank_data_BFS_4x4.pkl")
+idx_object = open_pickle_file("puzzles_4x4_theta_n-theta_i/Idxs_rank_data_BFS_4x4.pkl")
 print("len(idx_object[0])", len(idx_object[0]))
 print("")
 

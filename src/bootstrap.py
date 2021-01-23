@@ -258,7 +258,7 @@ class Bootstrap:
                                                 # actions_P in dictionary (for each puzzle)
 
                 cosine_P, dot_prod_P, new_metric_P, theta_diff = compute_cosines (nn_model, self._models_folder,
-                                                                                  None, False, batch_images_P,
+                                                                                  while_loop_iter, False, batch_images_P,
                                                                                   batch_actions_P)
                 # TODO: if you want to compare Final_theta to theta_i, 3rd argument must be None
                 #         if you want to compare theta_{i+1} to theta_i, 3rd argument must be while_loop_iter
@@ -293,7 +293,6 @@ class Bootstrap:
 
                 print ("len(P) =", len (P))
                 print("while_loop_iter =", while_loop_iter)
-
 
                 idx = indexes_rank_data[-1]
                 indexes_rank_data.append (idx + n_P)
@@ -388,52 +387,50 @@ class Bootstrap:
         print ("We are done if: len (current_solved_puzzles) == self._number_problems",
                len (current_solved_puzzles) == self._number_problems)
         if len (current_solved_puzzles) == self._number_problems:  # and iteration % 2 != 0.0:
-            # save_data_to_disk (Rank_max_new_metric, join (self._ordering_folder,
-            #                                               'Rank_NewMetric_BFS_i-i+1' + str (self._puzzle_dims) + ".pkl"))
-            #
-            # save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder,
-            #                                              'Rank_MaxDotProd_BFS_' + str (self._puzzle_dims) + ".pkl"))
-            #
-            # save_data_to_disk (Rank_max_cosines, join (self._ordering_folder,
-            #                                            'Rank_MaxCosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
-            #
-            # save_data_to_disk (Rank_min_costs, join (self._ordering_folder,
-            #                                          'Rank_MinLevinCost_BFS_' + str (self._puzzle_dims) + ".pkl"))
-            #
+            save_data_to_disk (Rank_max_new_metric,
+                               join (self._ordering_folder, 'Rank_NewMetric_BFS_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
-            #
-            # save_data_to_disk (ordering_new_metric, join (self._ordering_folder,
-            #                                              'Ordering_NewMetric_BFS_' + str (self._puzzle_dims) + ".pkl"))
-            #
-            # save_data_to_disk (ordering_dot_prods, join (self._ordering_folder,
-            #                                              'Ordering_DotProds_BFS_' + str (self._puzzle_dims) + ".pkl"))
-            #
-            # save_data_to_disk (ordering_cosines, join (self._ordering_folder,
-            #                                            'Ordering_Cosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
-            #
-            # save_data_to_disk (ordering_levin_scores, join (self._ordering_folder,
-            #                                                 'Ordering_LevinScores_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (Rank_max_dot_prods,
+                               join (self._ordering_folder, 'Rank_MaxDotProd_BFS_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
-            save_data_to_disk (indexes_rank_data, join (self._ordering_folder,
-                                                        'Idxs_rank_data_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (Rank_max_cosines,
+                               join (self._ordering_folder, 'Rank_MaxCosines_BFS_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+
+            save_data_to_disk (Rank_min_costs,
+                               join (self._ordering_folder, 'Rank_MinLevinCost_BFS_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+
+            save_data_to_disk (ordering_new_metric,
+                               join (self._ordering_folder, 'Ordering_NewMetric_BFS_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+
+            save_data_to_disk (ordering_dot_prods,
+                               join (self._ordering_folder, 'Ordering_DotProds_BFS_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+
+            save_data_to_disk (ordering_cosines,
+                               join (self._ordering_folder, 'Ordering_Cosines_BFS_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+
+            save_data_to_disk (ordering_levin_scores,
+                               join (self._ordering_folder, 'Ordering_LevinScores_BFS_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+
+            save_data_to_disk (indexes_rank_data,
+                               join (self._ordering_folder, 'Idxs_rank_data_BFS_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
             save_data_to_disk (self._new_metric_data_P,
-                               join (self._ordering_folder, 'New_metric_over_P_' + str (self._puzzle_dims) + ".pkl"))
+                               join (self._ordering_folder, 'New_metric_over_P_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
             save_data_to_disk (self._cosine_data_P,
-                               join (self._ordering_folder, 'Cosine_over_P_' + str (self._puzzle_dims) + ".pkl"))
+                               join (self._ordering_folder, 'Cosine_over_P_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
             save_data_to_disk (self._dot_prod_data_P,
-                               join (self._ordering_folder, 'Dot_Prod_over_P_' + str (self._puzzle_dims) + ".pkl"))
+                               join (self._ordering_folder, 'Dot_Prod_over_P_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
             save_data_to_disk (self._levin_costs_P,
-                               join (self._ordering_folder, 'Levin_Cost_over_P_' + str (self._puzzle_dims) + ".pkl"))
+                               join (self._ordering_folder, 'Levin_Cost_over_P_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
             save_data_to_disk (self._average_levin_costs_P,
-                               join (self._ordering_folder, 'Average_Levin_Cost_over_P_' + str (self._puzzle_dims) + ".pkl"))
+                               join (self._ordering_folder, 'Average_Levin_Cost_over_P_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
             save_data_to_disk (self._training_losses_P,
-                               join (self._ordering_folder, 'Training_Loss_over_P_' + str (self._puzzle_dims) + ".pkl"))
+                               join (self._ordering_folder, 'Training_Loss_over_P_theta_i+1-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
             nn_model.save_weights (join (self._models_folder, "Final_weights.h5"))
             # memory_v2.save_data ()
