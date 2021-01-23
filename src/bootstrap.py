@@ -190,7 +190,7 @@ class Bootstrap:
                         total_expanded += result[2]  # ??
                         total_generated += result[3]  # ??
                         puzzle_name = result[4]
-                        print ("puzzle name", puzzle_name)
+                        # print ("puzzle name", puzzle_name)
                         # # TODO: for debug:
                         # if '2x2_' in name and not already_skipped:
                         #     already_skipped = True
@@ -265,11 +265,24 @@ class Bootstrap:
                 levin_cost_P, average_levin_cost_P, training_loss_P = compute_levin_cost (batch_images_P,
                                                                                           batch_actions_P, nn_model)
 
-                argmax_p_dot_prods, Rank_dot_prods, argmax_p_cosines, Rank_cosines, argmax_p_new_metric, Rank_new_metric\
-                    = compute_rank (P, nn_model, theta_diff, memory_v2, self._ncpus, 19, n_P, parallelize_with_NN)
+                # TODO: uncomment the following:
+                # argmax_p_dot_prods, Rank_dot_prods, argmax_p_cosines, Rank_cosines, argmax_p_new_metric, Rank_new_metric\
+                #     = compute_rank (P, nn_model, theta_diff, memory_v2, self._ncpus, 19, n_P, parallelize_with_NN)
+                #
+                # argmin_p_levin_score, Rank_levin_scores = compute_rank_mins (P, nn_model, memory_v2, self._ncpus, 19,
+                #                                                              n_P, parallelize_with_NN)
 
-                argmin_p_levin_score, Rank_levin_scores = compute_rank_mins (P, nn_model, memory_v2, self._ncpus, 19,
-                                                                             n_P, parallelize_with_NN)
+                # ordering_new_metric.append (argmax_p_new_metric)
+                # Rank_max_new_metric.append (Rank_new_metric)
+                # ordering_dot_prods.append (argmax_p_dot_prods)
+                # Rank_max_dot_prods.append (Rank_dot_prods)
+                # ordering_cosines.append (argmax_p_cosines)
+                # Rank_max_cosines.append (Rank_cosines)
+
+                # ordering_levin_scores.append (argmin_p_levin_score)
+                # Rank_min_costs.append (Rank_levin_scores)
+                # print ("len (ordering_dot_prods) =", len (ordering_dot_prods))
+                # TODO: finish uncommenting the above
 
                 self._new_metric_data_P.append(new_metric_P)
                 self._cosine_data_P.append(cosine_P)
@@ -278,18 +291,9 @@ class Bootstrap:
                 self._average_levin_costs_P.append(average_levin_cost_P)
                 self._training_losses_P.append(training_loss_P)
 
-                ordering_new_metric.append (argmax_p_new_metric)
-                Rank_max_new_metric.append (Rank_new_metric)
-                ordering_dot_prods.append (argmax_p_dot_prods)
-                Rank_max_dot_prods.append (Rank_dot_prods)
-                ordering_cosines.append (argmax_p_cosines)
-                Rank_max_cosines.append (Rank_cosines)
-
-                ordering_levin_scores.append (argmin_p_levin_score)
-                Rank_min_costs.append (Rank_levin_scores)
                 print ("len(P) =", len (P))
                 print("while_loop_iter =", while_loop_iter)
-                print ("len (ordering_dot_prods) =", len (ordering_dot_prods))
+
 
                 idx = indexes_rank_data[-1]
                 indexes_rank_data.append (idx + n_P)
@@ -312,7 +316,7 @@ class Bootstrap:
                     # if loss < epsilon:
                     #     break
                 memory.clear ()
-                while_loop_iter += 1  # TODO: remove later
+                while_loop_iter += 1
             print ("finished training -----------")
             print ("")
             print ("")
@@ -384,34 +388,54 @@ class Bootstrap:
         print ("We are done if: len (current_solved_puzzles) == self._number_problems",
                len (current_solved_puzzles) == self._number_problems)
         if len (current_solved_puzzles) == self._number_problems:  # and iteration % 2 != 0.0:
-            save_data_to_disk (Rank_max_new_metric, join (self._ordering_folder,
-                                                          'Rank_NewMetric_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            # save_data_to_disk (Rank_max_new_metric, join (self._ordering_folder,
+            #                                               'Rank_NewMetric_BFS_i-i+1' + str (self._puzzle_dims) + ".pkl"))
+            #
+            # save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder,
+            #                                              'Rank_MaxDotProd_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            #
+            # save_data_to_disk (Rank_max_cosines, join (self._ordering_folder,
+            #                                            'Rank_MaxCosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            #
+            # save_data_to_disk (Rank_min_costs, join (self._ordering_folder,
+            #                                          'Rank_MinLevinCost_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            #
 
-            save_data_to_disk (Rank_max_dot_prods, join (self._ordering_folder,
-                                                         'Rank_MaxDotProd_BFS_' + str (self._puzzle_dims) + ".pkl"))
-
-            save_data_to_disk (Rank_max_cosines, join (self._ordering_folder,
-                                                       'Rank_MaxCosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
-
-            save_data_to_disk (Rank_min_costs, join (self._ordering_folder,
-                                                     'Rank_MinLevinCost_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            #
+            # save_data_to_disk (ordering_new_metric, join (self._ordering_folder,
+            #                                              'Ordering_NewMetric_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            #
+            # save_data_to_disk (ordering_dot_prods, join (self._ordering_folder,
+            #                                              'Ordering_DotProds_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            #
+            # save_data_to_disk (ordering_cosines, join (self._ordering_folder,
+            #                                            'Ordering_Cosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            #
+            # save_data_to_disk (ordering_levin_scores, join (self._ordering_folder,
+            #                                                 'Ordering_LevinScores_BFS_' + str (self._puzzle_dims) + ".pkl"))
 
             save_data_to_disk (indexes_rank_data, join (self._ordering_folder,
                                                         'Idxs_rank_data_BFS_' + str (self._puzzle_dims) + ".pkl"))
 
-            save_data_to_disk (ordering_new_metric, join (self._ordering_folder,
-                                                         'Ordering_NewMetric_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (self._new_metric_data_P,
+                               join (self._ordering_folder, 'New_metric_over_P_' + str (self._puzzle_dims) + ".pkl"))
 
-            save_data_to_disk (ordering_dot_prods, join (self._ordering_folder,
-                                                         'Ordering_DotProds_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (self._cosine_data_P,
+                               join (self._ordering_folder, 'Cosine_over_P_' + str (self._puzzle_dims) + ".pkl"))
 
-            save_data_to_disk (ordering_cosines, join (self._ordering_folder,
-                                                       'Ordering_Cosines_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (self._dot_prod_data_P,
+                               join (self._ordering_folder, 'Dot_Prod_over_P_' + str (self._puzzle_dims) + ".pkl"))
 
-            save_data_to_disk (ordering_levin_scores, join (self._ordering_folder,
-                                                            'Ordering_LevinScores_BFS_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk (self._levin_costs_P,
+                               join (self._ordering_folder, 'Levin_Cost_over_P_' + str (self._puzzle_dims) + ".pkl"))
 
-            nn_model.save_weights (join (self._models_folder, "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
+            save_data_to_disk (self._average_levin_costs_P,
+                               join (self._ordering_folder, 'Average_Levin_Cost_over_P_' + str (self._puzzle_dims) + ".pkl"))
+
+            save_data_to_disk (self._training_losses_P,
+                               join (self._ordering_folder, 'Training_Loss_over_P_' + str (self._puzzle_dims) + ".pkl"))
+
+            nn_model.save_weights (join (self._models_folder, "Final_weights.h5"))
             # memory_v2.save_data ()
 
     def solve_problems(self, planner, nn_model, parameters):

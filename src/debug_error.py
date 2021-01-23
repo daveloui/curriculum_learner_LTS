@@ -181,7 +181,7 @@ KerasManager.register ('KerasModel', KerasModel)
 with KerasManager () as manager:
     nn_model = manager.KerasModel ()
     nn_model.initialize ("CrossEntropyLoss", "Levin", two_headed_model=False)
-    nn_weights_file = "trained_models_large/BreadthFS_4x4-Witness-CrossEntropyLoss/pretrained_weights_10.h5"
+    nn_weights_file = "trained_models_large/BreadthFS_4x4-Witness-CrossEntropyLoss/Final_weights_NoDebug.h5"
     nn_model.load_weights (nn_weights_file)
     theta_i = nn_model.retrieve_layer_weights ()
 
@@ -199,47 +199,35 @@ with KerasManager () as manager:
     for j, sublist_j in enumerate(theta_n):
         sublist_j_array = sublist_j.numpy()
         num_items = np.prod(sublist_j_array.shape)
-        dims = len (sublist_j_array.shape)
-        print ("num_items in subarray", num_items)
-        print ("dims of sublist_j_array =", dims)
-
+        dims_j = len (sublist_j_array.shape)
         sublist_j_list = sublist_j_array.tolist()
-        flat_j = flatten_list(sublist_j_list, dims)
+        flat_j = flatten_list(sublist_j_list, dims_j)
         assert len(flat_j) == num_items
-        print("len(flat_j)", len(flat_j))
 
         num_weights_j += len(flat_j)
         list_theta_n.append(flat_j)
 
-
         sublist_i_array = theta_i[j].numpy()
         num_items = np.prod (sublist_i_array.shape)
-        dims = len (sublist_i_array.shape)
-        print ("num_items in subarray", num_items)
-        print ("dims of sublist_i_array =", dims)
-
+        dims_i = len (sublist_i_array.shape)
         sublist_i_list = sublist_i_array.tolist ()
-        flat_i = flatten_list (sublist_i_list, dims)
+        flat_i = flatten_list (sublist_i_list, dims_i)
         assert len (flat_i) == num_items
-        print ("len(flat_i)", len (flat_i))
-
-        list_theta_i.append(flat_i)
-        # num_weights_i += len(flat_i)
+        
+        num_weights_i += len(flat_i)
+        list_theta_i.append (flat_i)
 
         assert (flat_j == flat_i)
+        # print ("num_items in subarray", num_items)
+        # print ("dims of sublist_j_array =", dims_j)
+        # print("len(flat_j)", len(flat_j))
+        # print ("num_items in subarray", num_items)
+        # print ("dims of sublist_i_array =", dims_i)
+        # print ("len(flat_i)", len (flat_i))
 
-
-
-
-    #
-    #     # print(type(sublist_j[0]))
-    #     # print(sublist_j[0].shape)
-    #
-    #     print(" ")
-    # print(len(list_theta_n))
-    # flat_theta_n = flatten_list(list_theta_n)
-    # print(len(flat_theta_n))
-    # print(num_weights)
+    # print("num_weights_j =", num_weights_j)
+    # print("num_weights_i =", num_weights_i)
+    assert num_weights_i == num_weights_j
 
 
 
