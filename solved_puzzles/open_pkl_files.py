@@ -15,6 +15,10 @@ from collections import deque
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import scipy
+from scipy.signal import find_peaks
+from scipy.signal import argrelextrema
+
 from Witness_Puzzle_Image import WitnessPuzzle
 
 
@@ -41,15 +45,39 @@ def plot_data(list_values, idxs_new_puzzles, title_name, filename_to_save_fig, s
     plt.figure ()
     # for xc in idxs_new_puzzles:
     #     plt.axvline (x=xc, c='orange', linestyle='--', alpha=0.6)
+
     x = np.asarray(idxs_new_puzzles)  #np.arange(0, 65)
     list_values = np.asarray(list_values)
     plt.scatter (x, list_values, s=4, alpha=1.0, color='b') #, edgecolors='black')
+
+    # peaks, _ = find_peaks (list_values, height=0)
+    # print("")
+    # print("peaks", peaks)
+    # print("list_values[peaks]", list_values[peaks])
+    # plt.plot (peaks, list_values[peaks], "x")
+    #
+    # print("")
+    # dict_indx_peaks_values = {}
+    # c_max_index = argrelextrema (list_values[0:len(list_values)-1], np.greater, order=1)
+    # indices_of_peaks = c_max_index[0]  # a numpy array
+    # peak_values = list_values[indices_of_peaks]  # a numpy array
+    # assert indices_of_peaks.shape == peak_values.shape
+    # plt.scatter (indices_of_peaks, peak_values, s=8, color='r', alpha=1.0)
+    #
+    # print("indices_of_peaks", indices_of_peaks)
+    # print("peak_values", peak_values)
+    # print ("")
+    #
+    # for i, idx in enumerate(indices_of_peaks):
+    #     peak_val = peak_values[i]
+    #     dict_indx_peaks_values[idx] = peak_val
+    # print("dict_indx_peaks_values", dict_indx_peaks_values)
 
     plt.grid (True)
     plt.title(title_name)
     plt.xlabel(x_label)
     # if y_lim_upper is not None and y_lim_lower is not None:
-    plt.ylim(ymin=-0.2, ymax=2)
+    plt.ylim(ymin=-1.0, ymax=1.0)
     if x_max is not None and x_min is not None:
         plt.xlim(xmin=x_min, xmax=x_max)
 
@@ -187,6 +215,50 @@ for file in os.listdir('puzzles_4x4_theta_n-theta_i/'):
             new_metric_vals = object[0]
             print("new_metric", new_metric_vals)
             title_name = "(grad_c(P) * (theta_n - theta_t))/ ||theta_n - theta_t||"
+
+            print("")
+            prev = 0
+            l = []
+            l_above_0 = []
+            idx_above_0 = []
+            puzzles_in_P = []
+            prev_num = 0
+
+            above_0_per_puzzle = []
+            for i in range(len(new_metric_vals)):
+                num_p = idx_object[0][i] - prev_num
+                puzzles_in_P += [num_p]
+                prev_num = idx_object[0][i]
+
+                above_0_per_puzzle += [new_metric_vals[i]/num_p]
+
+
+                change = new_metric_vals[i] - prev
+                # print("new_metric_vals[i]", new_metric_vals[i], " prev", prev)
+                if change > 0.0:
+                    l_above_0 += [change]
+                    idx_above_0 += [idx_object[0][i]]
+                prev = new_metric_vals[i]
+                l += [change]
+
+            print("above_0_per_puzzle", above_0_per_puzzle)
+            title_name = "Change in (grad_c(P) * (theta_n - theta_t))/ ||theta_n - theta_t||"
+            print(len(object[0]))
+            print("idx_above_0", idx_above_0)
+            print("")
+            print("l_above_0", l_above_0)
+            print ("")
+            print("idx_object[0]", idx_object[0])
+            print("")
+            print("puzzles_in_P", puzzles_in_P)
+            # plots_filename = os.path.join (plots_path, "Change_" + file.split ("_4x4.pkl")[0])
+            # print ("plots_filename", plots_filename)
+            # plot_data (l, idx_object[0], title_name, plots_filename, None, None)
+            # plot_data (object[0], idx_object[0], title_name, plots_filename, None, None)
+
+            continue
+
+
         elif "Cosine" in file:
             cosine_vals = object[0]
             print ("cosine", cosine_vals)
@@ -209,11 +281,6 @@ for file in os.listdir('puzzles_4x4_theta_n-theta_i/'):
             print("training_loss_vals", training_loss_vals)
 
 
-        # plots_filename = os.path.join(plots_path, file.split("_4x4.pkl")[0])
-        # print("plots_filename", plots_filename)
-        # special_x = None
-        # special_y = None
-        # plot_data(object[0], idx_object[0], title_name, plots_filename, special_x, special_y)
 
 
 
