@@ -228,6 +228,8 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="all_metric
     new_metric = dot_prod / theta_diff_l2.numpy ()
 
     grads_P_l2 = tf.norm (grads_P, ord=2)
+    # print("grads_P_l2", grads_P_l2)
+    # print("theta_diff_l2", theta_diff_l2)
     denom_cosine = theta_diff_l2 * grads_P_l2
     cosine = dot_prod / denom_cosine.numpy()
 
@@ -246,7 +248,7 @@ def retrieve_final_NN_weights(models_folder, iter=None): #, weights_filename="pr
 
     # Note: if we are in iteration i, that means that the file pretrained_weights_i.h5 contains the weights AFTER training, saved in iteration i
     if iter is None:
-        weights_filename = "Final_weights.h5"  # "pretrained_weights_" + str(iter) + ".h5"
+        weights_filename = "Final_weights_n-i.h5"  # "pretrained_weights_" + str(iter) + ".h5"
     else:
         weights_filename = "pretrained_weights_" + str(iter) + ".h5"
     full_filename = join (models_folder, weights_filename)

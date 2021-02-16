@@ -181,15 +181,20 @@ KerasManager.register ('KerasModel', KerasModel)
 with KerasManager () as manager:
     nn_model = manager.KerasModel ()
     nn_model.initialize ("CrossEntropyLoss", "Levin", two_headed_model=False)
-    nn_weights_file = "trained_models_large/BreadthFS_4x4-Witness-CrossEntropyLoss/Final_weights_NoDebug.h5"
+    nn_weights_file = "trained_models_large/BreadthFS_4x4-Witness-CrossEntropyLoss/Final_weights_i+1-i.h5"
     nn_model.load_weights (nn_weights_file)
     theta_i = nn_model.retrieve_layer_weights ()
 
-    theta_diff, theta_i_prime, theta_n = compute_cosines (nn_model, models_folder, None, True)
+    from models.temp_model import TempConvNet  # temp_model,
+    new_model = TempConvNet ((2, 2), 32, 4, 'CrossEntropyLoss')
+    new_model.load_weights ("trained_models_large/BreadthFS_4x4-Witness-CrossEntropyLoss/Final_weights_n-i.h5")
+    theta_n = new_model.retrieve_layer_weights ()
+
+    theta_diff = [tf.math.subtract (a_i, b_i, name=None) for a_i, b_i in zip (theta_i, theta_n)]
 
     print("type(theta_diff)", type(theta_diff))
     print("type(theta_i) =", type(theta_i))
-    print("type(theta_i_prime)", type(theta_i_prime))
+
     print("type(theta_n)", type(theta_n))
 
     list_theta_n = []
