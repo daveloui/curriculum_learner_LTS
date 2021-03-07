@@ -95,6 +95,7 @@ class Bootstrap:
         self._levin_costs_P = []
         self._average_levin_costs_P = []
         self._training_losses_P = []
+        self._grads_l2_P = []
         self.use_GPUs = use_GPUs
 
     def map_function(self, data):
@@ -144,7 +145,8 @@ class Bootstrap:
             # TODO: only need to restore before while loop starts.
             # TODO: because: pretend that program ends at end of while loop iteration -- then we need to just go through the inside of loop, as we would have without breakpoint
 
-        self.while_loop_iter = 1  # TODO: debug
+        self.while_loop_iter = 1
+        self.sum_weights = tf.zeros((128, 4))
 
     def _call_solver(self, planner, nn_model):
 
@@ -223,9 +225,9 @@ class Bootstrap:
             # function retrieve_batch_data_solved_puzzles also stores images_P and
             # actions_P in dictionary (for each puzzle)
 
-            cosine_P, dot_prod_P, new_metric_P, theta_diff = compute_cosines (nn_model, self._models_folder,
+            cosine_P, dot_prod_P, new_metric_P, theta_diff, grads_P_l2 = compute_cosines (nn_model, self._models_folder,
                                                                               None, False, batch_images_P,
-                                                                              batch_actions_P)
+                                                                              batch_actions_P, self.while_loop_iter)  # sum_weights
             # TODO: if you want to compare Final_theta to theta_i, 3rd argument must be None
             #         if you want to compare theta_{i+1} to theta_i, 3rd argument must be while_loop_iter
             levin_cost_P, average_levin_cost_P, training_loss_P = compute_levin_cost (batch_images_P, batch_actions_P,
@@ -257,6 +259,7 @@ class Bootstrap:
             self._levin_costs_P.append (levin_cost_P)
             self._average_levin_costs_P.append (average_levin_cost_P)
             self._training_losses_P.append (training_loss_P)
+            self._grads_l2_P.append (grads_P_l2)
 
             print ("len(self._P) =", len (self._P))
             print ("while_loop_iter =", self.while_loop_iter)
@@ -408,9 +411,13 @@ class Bootstrap:
                                join (self._ordering_folder,
                                      'New_metric_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
+            save_data_to_disk (self._grads_l2_P,
+                               join (self._ordering_folder,
+                                     'New_metric_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+
             save_data_to_disk (self._cosine_data_P,
                                join (self._ordering_folder,
-                                     'Cosine_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+                                     'L2_Grad_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
             save_data_to_disk (self._dot_prod_data_P,
                                join (self._ordering_folder,

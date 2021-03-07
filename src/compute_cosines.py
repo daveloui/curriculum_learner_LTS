@@ -216,6 +216,7 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="all_metric
         assert tensor.shape == grads_P[i].shape
         l_theta_diff.append(tf.keras.backend.flatten(tensor))
         l_grads_P.append(tf.keras.backend.flatten(grads_P[i]))    # where the error happens
+
     theta_diff = tf.concat (l_theta_diff, axis=0)
     grads_P = tf.concat (l_grads_P, axis=0)
     assert theta_diff.shape[0] == grads_P.shape
@@ -228,7 +229,7 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="all_metric
     new_metric = dot_prod / theta_diff_l2.numpy ()
 
     grads_P_l2 = tf.norm (grads_P, ord=2)
-    # print("grads_P_l2", grads_P_l2)
+
     # print("theta_diff_l2", theta_diff_l2)
     denom_cosine = theta_diff_l2 * grads_P_l2
     cosine = dot_prod / denom_cosine.numpy()
@@ -241,7 +242,7 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="all_metric
         print("encountered a zero new_metric-denominator!")
         print("new_metric =", new_metric)
 
-    return cosine, dot_prod, new_metric
+    return cosine, dot_prod, new_metric, grads_P_l2.numpy()
 
 
 def retrieve_final_NN_weights(models_folder, iter=None): #, weights_filename="pretrained_weights.h5"): # TODO: now we must include the iteration number in the weights
@@ -269,22 +270,29 @@ def get_grads_and_CEL_from_batch(array_images, array_labels, theta_model):
     return grads  # sum_loss_val, mean_loss_val, grads
 
 
-def compute_cosines(theta_model, models_folder, iter=None, debugging=False, batch_images_P=None, batch_actions_P=None):
+def compute_cosines(theta_model, models_folder, iter=None, debugging=False, batch_images_P=None, batch_actions_P=None,
+                    while_loop_iter=None):
     # TODO: inputs used to be: batch_images_P, batch_actions_P, theta_model, models_folder, parameters
 
     theta_i = theta_model.retrieve_layer_weights()  # shape is (128, 4)
+    # print("type(theta_i)", type(theta_i), len(theta_i))
+    # for w in theta_i:
+    #     print(type(w))
+    #     print("w.shape", w.shape)
     theta_n, _ = retrieve_final_NN_weights(models_folder, iter)  # retrieves either the final layer weights after all of training is done,
                 # or the next layer weights theta_{i+1}
     theta_diff = [tf.math.subtract (a_i, b_i, name=None) for a_i, b_i in zip (theta_i, theta_n)]
 
     if (batch_actions_P is not None) and (batch_images_P is not None):
         grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model) # TODO: used to be uncommented  # _, _, last_grads_P
-        cosine_P, dot_prod_P, new_metric_P = compute_and_save_cosines_helper_func (theta_diff, grads_P)
+        cosine_P, dot_prod_P, new_metric_P, grads_P_l2 = compute_and_save_cosines_helper_func (theta_diff, grads_P)
         assert len (theta_i) == len (theta_n) == len (grads_P)
         assert len (theta_diff) == len (grads_P)
 
+        # print("type(grads_P), grads_P.shape", type(grads_P), grads_P.shape)
+
     if not debugging:
-        return cosine_P, dot_prod_P, new_metric_P, theta_diff
+        return cosine_P, dot_prod_P, new_metric_P, theta_diff, grads_P_l2
     return theta_diff, theta_i, theta_n  # return cosine, dot_prod, theta_diff
 
 
@@ -312,7 +320,7 @@ def findArgMax_helper_1(data):
     labels = memory_model.retrieve_labels (puzzle_name)  # np.array
     grads_p_i = get_grads_and_CEL_from_batch (state_images, labels, nn_model)
 
-    cosine, dot_prod, new_metric = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "cosine_and_dot_prod")
+    cosine, dot_prod, new_metric, grads_P_l2 = compute_and_save_cosines_helper_func (theta_diff, grads_p_i, "cosine_and_dot_prod")
     return puzzle_name, dot_prod, cosine, new_metric
 
 
