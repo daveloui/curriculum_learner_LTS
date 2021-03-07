@@ -17,7 +17,8 @@ tf.random.set_seed (1)
 
 from models.memory import Memory, MemoryV2
 from compute_cosines import retrieve_batch_data_solved_puzzles, check_if_data_saved, retrieve_all_batch_images_actions, \
-    compute_cosines, save_data_to_disk, find_argmax, compute_levin_cost, find_minimum, compute_rank, compute_rank_mins
+    compute_cosines, save_data_to_disk, find_argmax, compute_levin_cost, find_minimum, compute_rank, compute_rank_mins, \
+    compute_sum_weights
 from save_while_for_loop_states import save_while_loop_state, restore_while_loop_state
 
 
@@ -147,6 +148,8 @@ class Bootstrap:
 
         self.while_loop_iter = 1
         self.sum_weights = tf.zeros((128, 4))
+
+        compute_sum_weights(parameters.model_name, 1)
 
     def _call_solver(self, planner, nn_model):
 

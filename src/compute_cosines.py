@@ -206,6 +206,41 @@ def map_zero_denom (dot_prod_p_vs_T):
     return cosine
 
 
+
+def helper_func(model_name, i):
+    print("")
+    print("INSIDE helper_func")
+    # model_name = "4x4-Witness-CrossEntropyLoss"
+    theta_i, _ = retrieve_final_NN_weights(models_folder='trained_models_large/BreadthFS_' + model_name, iter=i)
+    theta_i_next, _ = retrieve_final_NN_weights (models_folder='trained_models_large/BreadthFS_' + model_name, iter=i+1)
+    theta_diff_i = [tf.math.subtract (a_i, b_i, name=None) for a_i, b_i in zip (theta_i, theta_i_next)]
+
+    l_theta_diff_i = []
+    for i, tensor in enumerate (theta_diff_i):
+        l_theta_diff_i.append (tf.keras.backend.flatten (tensor))
+
+    theta_diff_i = tf.concat (l_theta_diff_i, axis=0)
+    theta_diff_i_l2 = tf.norm (theta_diff_i, ord=2).numpy()
+    print ("theta_diff_i_l2 =", theta_diff_i_l2)
+    return theta_diff_i_l2
+
+
+def compute_sum_weights(model_name="debug-witness-CEL"):
+
+    pretrained_files = []
+    for file in os.listdir('trained_models_large/BreadthFS_' + model_name + '/'):
+        if "pretrained" in file:
+            pretrained_files += [file]
+    num_files = len(pretrained_files)
+
+    summ = 0.0
+    for i, filename in enumerate(pretrained_files[:num_files-1]):
+        if "_" + str(i) + ".h5" in filename:
+            helper_func(model_name, i)
+    assert False
+    pass
+
+
 def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="all_metrics"):
     # grads_P is a list of tensors
     # print("")

@@ -91,7 +91,6 @@ class Bootstrap_No_Debug:
 
         self._cosine_data = []
         self._dot_prod_data = []
-        # self._dict_cos = {}
         self._levin_costs = []
         self._average_levin_costs = []
         self._training_losses = []
