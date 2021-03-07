@@ -248,7 +248,7 @@ def retrieve_final_NN_weights(models_folder, iter=None): #, weights_filename="pr
 
     # Note: if we are in iteration i, that means that the file pretrained_weights_i.h5 contains the weights AFTER training, saved in iteration i
     if iter is None:
-        weights_filename = "Final_weights_n-i.h5"  # "pretrained_weights_" + str(iter) + ".h5"
+        weights_filename = "Final_weights_NoDebug.h5"  # "pretrained_weights_" + str(iter) + ".h5"
     else:
         weights_filename = "pretrained_weights_" + str(iter) + ".h5"
     full_filename = join (models_folder, weights_filename)
@@ -273,7 +273,8 @@ def compute_cosines(theta_model, models_folder, iter=None, debugging=False, batc
     # TODO: inputs used to be: batch_images_P, batch_actions_P, theta_model, models_folder, parameters
 
     theta_i = theta_model.retrieve_layer_weights()  # shape is (128, 4)
-    theta_n, _ = retrieve_final_NN_weights(models_folder, iter)
+    theta_n, _ = retrieve_final_NN_weights(models_folder, iter)  # retrieves either the final layer weights after all of training is done,
+                # or the next layer weights theta_{i+1}
     theta_diff = [tf.math.subtract (a_i, b_i, name=None) for a_i, b_i in zip (theta_i, theta_n)]
 
     if (batch_actions_P is not None) and (batch_images_P is not None):

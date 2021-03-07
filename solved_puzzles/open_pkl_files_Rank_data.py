@@ -207,6 +207,8 @@ if not os.path.exists (plots_path):
 
 print("Idxs_rank_data_BFS_" + suffix + "_4x4.pkl")
 print("len(idx_object[0])", len(idx_object[0]))
+
+
 print("idx_object[0]", idx_object[0])
 print("")
 print("num_New_Puzzles_Solved", num_New_Puzzles_Solved)
@@ -228,7 +230,9 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
         object = open_pickle_file(full_filename)
         print ("filename", file)
         print("len(object[0])", len(object[0]))
+        assert False
         print ("")
+
         flat = flatten_list(flatten_list(object))
         assert len (flat) == 2369
 
