@@ -97,6 +97,7 @@ class Bootstrap:
         self._average_levin_costs_P = []
         self._training_losses_P = []
         self._grads_l2_P = []
+        self._Levi_metric_P = []
         self.use_GPUs = use_GPUs
 
     def map_function(self, data):
@@ -147,9 +148,8 @@ class Bootstrap:
             # TODO: because: pretend that program ends at end of while loop iteration -- then we need to just go through the inside of loop, as we would have without breakpoint
 
         self.while_loop_iter = 1
-        self.sum_weights = tf.zeros((128, 4))
-
-        compute_sum_weights(parameters.model_name, 1)
+        self.Levi_metric_denom = compute_sum_weights(parameters.model_name, self._ordering_folder)
+        print("Levi_metric_denom", self.Levi_metric_denom)
 
     def _call_solver(self, planner, nn_model):
 
@@ -214,8 +214,7 @@ class Bootstrap:
                     self.memory_v2.add_trajectory (trajectory, puzzle_name)
                     self._P += [puzzle_name]
                     self._n_P += 1
-            e_solve_puzzles = time.time ()
-            print ("time to solve batch of ", self._batch_size, "= ", e_solve_puzzles - s_solve_puzzles)
+            print ("time to solve batch of ", self._batch_size, "= ", time.time () - s_solve_puzzles)
 
     def compute_debug_data(self, nn_model):
         # we only compute the cosine data with puzzles that are newly solved (with current weights and current budget).
@@ -228,9 +227,10 @@ class Bootstrap:
             # function retrieve_batch_data_solved_puzzles also stores images_P and
             # actions_P in dictionary (for each puzzle)
 
-            cosine_P, dot_prod_P, new_metric_P, theta_diff, grads_P_l2 = compute_cosines (nn_model, self._models_folder,
+            cosine_P, dot_prod_P, new_metric_P, theta_diff, Levi_metric = compute_cosines (nn_model, self._models_folder,
                                                                               None, False, batch_images_P,
-                                                                              batch_actions_P, self.while_loop_iter)  # sum_weights
+                                                                              batch_actions_P, self.Levi_metric_denom)
+
             # TODO: if you want to compare Final_theta to theta_i, 3rd argument must be None
             #         if you want to compare theta_{i+1} to theta_i, 3rd argument must be while_loop_iter
             levin_cost_P, average_levin_cost_P, training_loss_P = compute_levin_cost (batch_images_P, batch_actions_P,
@@ -262,7 +262,8 @@ class Bootstrap:
             self._levin_costs_P.append (levin_cost_P)
             self._average_levin_costs_P.append (average_levin_cost_P)
             self._training_losses_P.append (training_loss_P)
-            self._grads_l2_P.append (grads_P_l2)
+            # self._grads_l2_P.append (grads_P_l2)
+            self._Levi_metric_P.append (Levi_metric)
 
             print ("len(self._P) =", len (self._P))
             print ("while_loop_iter =", self.while_loop_iter)
@@ -273,7 +274,6 @@ class Bootstrap:
                 self.indexes_rank_data = self.indexes_rank_data[1:]
 
     def _solve_uniform_online(self, planner, nn_model, parameters):
-        print("here")
         self.initialize(parameters)
 
         while len (self.current_solved_puzzles) < self._number_problems:
@@ -303,8 +303,6 @@ class Bootstrap:
                 self._num_states_still_to_try_to_solve = self._number_problems - (self._j * self._batch_size)
 
                 self._call_solver(planner, nn_model)
-                print("self.total_expanded, self.total_generated", self.total_expanded, self.total_generated)
-
                 self._batch_problems.clear ()  # at the end of the bigger for loop, batch_problems == {}
 
             print ("time for for loop to go over all puzzles =", time.time () - self._s_for_loop)
@@ -414,9 +412,13 @@ class Bootstrap:
                                join (self._ordering_folder,
                                      'New_metric_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
-            save_data_to_disk (self._grads_l2_P,
-                               join (self._ordering_folder,
-                                     'New_metric_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+            save_data_to_disk(self._Levi_metric_P,
+                              join (self._ordering_folder,
+                                    'Levi_metric_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+
+            # save_data_to_disk (self._grads_l2_P,
+            #                    join (self._ordering_folder,
+            #                          'New_metric_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
             save_data_to_disk (self._cosine_data_P,
                                join (self._ordering_folder,
