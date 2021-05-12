@@ -51,7 +51,7 @@ flatten_list = lambda l: [item for sublist in l for item in sublist]
 
 def plot_data(list_values, idxs_new_puzzles, title_name, filename_to_save_fig, x_label="Number of New Puzzles Solved",
               y_lim_upper=None, y_lim_lower=None, x_max=None, x_min=None, flag=''):
-    print("list_values", list_values)
+    # print("list_values", list_values)
     print("")
     print("idxs_new_puzzles", idxs_new_puzzles)
     plt.figure ()
@@ -191,7 +191,14 @@ def find_puzzles_above_0(l_above_0, idx_above_0, num_puzzles_per_batch, flattene
     return sublists_above0
 
 
-global suffix, plots_path, puzzles_path
+
+class Make_Plots:
+    def __init__(self, suffix, plots_path, puzzles_path):
+        self.suffix = suffix
+        self.plots_path = plots_path
+        self.puzzles_path = puzzles_path
+
+
 suffix = "theta_n-theta_i"
 idxs_solved_batches = open_pickle_file("puzzles_4x4_" + suffix + "/Idxs_rank_data_BFS_" + suffix + "_4x4.pkl")[0]
 
@@ -202,7 +209,7 @@ for x in idxs_solved_batches:
     num_New_Puzzles_Solved += [diff]
     x_prev = x
 print("len(idxs_solved_batches)", len(idxs_solved_batches))
-print("idxs_solved_batches", idxs_solved_batches)
+# print("idxs_solved_batches", idxs_solved_batches)
 print("num_New_Puzzles_Solved", num_New_Puzzles_Solved)
 print("sum(num_New_Puzzles_Solved)", sum(num_New_Puzzles_Solved))
 
@@ -252,7 +259,7 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
             cosine_vals = object[0]
             title_name = "cosine(angle(grad_c(P), (theta_n - theta_t)))"
             plots_filename = os.path.join (plots_path, file.split ("_4x4.pkl")[0] + flag)
-            print ("cosine", cosine_vals)
+            # print ("cosine", cosine_vals)
             print ("plots_filename", plots_filename)
             plot_data (cosine_vals, idxs_solved_batches, title_name, plots_filename, x_label=x_label, y_lim_upper=0.125,
                        y_lim_lower=-0.025)
@@ -263,7 +270,7 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
             plots_filename = os.path.join (plots_path, file.split ("_4x4.pkl")[0] + flag)
             plot_data (dot_prod_vals, idxs_solved_batches, title_name, plots_filename, x_label=x_label,
                        y_lim_upper=20.0, y_lim_lower=-2.0)
-            print ("dot prods", dot_prod_vals)
+            # print ("dot prods", dot_prod_vals)
             print ("plots_filename", plots_filename)
 
         elif "Levin_Cost" in file:
@@ -271,7 +278,7 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
             title_name = "Log Levin Cost"
             plots_filename = os.path.join (plots_path, file.split ("_4x4.pkl")[0] + flag)
             plot_data (log_levin_vals, idxs_solved_batches, title_name, plots_filename, x_label=x_label)
-            print ("log levin", log_levin_vals)
+            # print ("log levin", log_levin_vals)
             print ("plots_filename", plots_filename)
 
         elif "Average_Levin_Cost" in file:
@@ -279,7 +286,7 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
             title_name = "Average Log Levin Cost"
             plots_filename = os.path.join (plots_path, file.split ("_4x4.pkl")[0] + flag)
             plot_data (average_log_levin_vals, idxs_solved_batches, title_name, plots_filename, x_label=x_label)
-            print("average log levin", average_log_levin_vals)
+            # print("average log levin", average_log_levin_vals)
             print ("plots_filename", plots_filename)
 
         elif "Training_Loss" in file:
@@ -287,8 +294,14 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
             title_name = "Training Loss (Mean Cross Entropy Loss)"
             plots_filename = os.path.join (plots_path, file.split ("_4x4.pkl")[0] + flag)
             plot_data (training_loss_vals, idxs_solved_batches, title_name, plots_filename, x_label=x_label)
-            print("training_loss_vals", training_loss_vals)
+            # print("training_loss_vals", training_loss_vals)
             print ("plots_filename", plots_filename)
+
+
+
+
+
+
 
 
 

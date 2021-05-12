@@ -33,49 +33,6 @@ def open_pickle_file(filename):
     openfile.close ()
     return objects
 
-def count_each_category():
-    # counts how many puzzles belong to each category
-    # if "MaxDotProd" in file:
-    #     print("dotprod file", file)
-    #     some_dict = {}  # TODO: debug
-    #     # object[0][1] = Rank_DotProds
-    #     total = 0
-
-    # count how many puzzles belong to each category:
-    # for i, sublist in enumerate(object[0]):
-    #     # sublist_dict = {"1x2": 0, "1x3": 0, "2x2": 0, "3x3": 0, "4x4": 0, "w": []}
-    #     L = len(sublist)
-    #     print("len(sublist) =", L)
-    #     total += L
-    # #     # TODO:
-    # #     for tup_item in sublist:
-    # #         name = tup_item[0]
-    # #         if "1x2" in name:
-    # #             sublist_dict["1x2"] += 1
-    # #         elif "1x3" in name:
-    # #             sublist_dict["1x3"] += 1
-    # #         elif "2x2" in name:
-    # #             sublist_dict["2x2"] += 1
-    # #         elif "3x3" in name:
-    # #             sublist_dict["3x3"] += 1
-    # #         elif "4x4" in name:
-    # #             sublist_dict["4x4"] += 1
-    # #         else:
-    # #             new_name = map_witness_puzzles_to_dims(name)
-    # #             sublist_dict[new_name] += 1
-    # #             sublist_dict['w'] += [name]
-    # #     some_dict["sublist_" + str(i)] = sublist_dict
-    # # print("some_dict =", some_dict)
-    # # print("")
-    # print("total", total)
-    # print("")
-
-    # save_data_to_disk (some_dict,
-    #                    join (dict_folder,
-    #                          'Average_Levin_Cost_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
-
-    pass
-
 
 flatten_list = lambda l: [item for sublist in l for item in sublist]
 
@@ -136,8 +93,6 @@ idx_object [[1, 6, 106, 107, 246, 248, 415, 443, 455, 460, 461, 462, 759, 811, 8
              2330, 2334, 2338, 2345, 2348, 2349, 2356, 2358, 2359, 2362, 2364, 2365, 2367, 2368, 2369]]
 
 '''
-
-
 def find_top_k(nested_list, k):
     new_vals = []
     names_dict = {}
@@ -161,8 +116,6 @@ def find_top_k(nested_list, k):
 
 
 def find_special_vals(loaded_object):
-    # for sublist in loaded_object[0]:
-    #     pass
     return None, None
 
 
@@ -177,9 +130,24 @@ def map_witness_puzzles_to_dims(name):
         return "3x3"
     elif (name == "witness_7") or (name == "witness_8") or (name == "witness_9"):
         return "4x4"
-#
-# object = open_pickle_file('puzzles_4x4_theta_n-theta_i/Ordering_NewMetric_BFS_theta_n-theta_i_4x4.pkl')
-# print(len(object[0]))
+print("")
+print("Ordering_")
+object = open_pickle_file('puzzles_4x4_theta_n-theta_i/Ordering_NewMetric_BFS_theta_n-theta_i_4x4.pkl')[0]
+print(len(object))
+print(object[0:10])
+print("")
+
+print("Rank_")
+object = open_pickle_file('puzzles_4x4_theta_n-theta_i/Rank_NewMetric_BFS_theta_n-theta_i_4x4.pkl')[0]
+print(len(object))
+print(object[0:2])
+print("")
+
+print("_over_P")
+object = open_pickle_file('puzzles_4x4_theta_n-theta_i/New_metric_over_P_theta_n-theta_i_4x4.pkl')[0]
+print(len(object))
+print(object[0:10])
+print("")
 # assert False
 
 
@@ -205,16 +173,6 @@ plots_path = os.path.join (os.path.dirname (os.path.realpath (__file__)), "puzzl
 if not os.path.exists (plots_path):
     os.makedirs (plots_path, exist_ok=True)
 
-print("Idxs_rank_data_BFS_" + suffix + "_4x4.pkl")
-print("len(idx_object[0])", len(idx_object[0]))
-print("idx_object[0]", idx_object[0])
-print("")
-print("num_New_Puzzles_Solved", num_New_Puzzles_Solved)
-print("sum(num_New_Puzzles_Solved)", sum(num_New_Puzzles_Solved))
-print("while_loop_iter", while_loop_iter)
-print("")
-print ("puzzle images path =", puzzles_path)
-print ("plots_path =", plots_path)
 
 witness_puzzle = WitnessPuzzle ()
 d = {}
@@ -223,7 +181,7 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
     if "Idxs" in file or ".py" in file:
         continue
 
-    if "Rank_" in file: # or "Ordering_" in file:
+    if "Rank_" in file:  # or "Ordering_" in file:
         full_filename = 'puzzles_4x4_' + suffix + '/' + file
         object = open_pickle_file(full_filename)
         print ("filename", file)
@@ -260,8 +218,6 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
             title_name = "cosine(angle(grad_c(p), (theta_{t+1} - theta_t)))"
         elif "NewMetric" in file:
             title_name = "grad_c(p) * (theta_{t+1} - theta_t) / ||(theta_{t+1} - theta_t)||"
-            # y_min = -0.5
-            # y_max = 12.0
         else:
             title_name = "Log Levin Cost"
 
@@ -276,20 +232,14 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
                 os.makedirs (Top_k_path, exist_ok=True)
             Top_k_dict_file = join (Top_k_path, file.split ("_BFS_")[0])
 
+            # save as txt file
             w = csv.writer (open (Top_k_dict_file, "w"))
             for key, val in dict_names.items ():
                 w.writerow ([key, val])
-
+            # save copy as pkl file
             output = open (Top_k_dict_file + '.pkl', 'wb')
             pickle.dump (dict_names, output)
             output.close ()
-            # print ("witness dict", d)
-            # print ("idxs", idxs_new_puzzles)
-            # print("x_values", x_values)
-            # print("list_names", dict_names)
-            # print ("")
-            # print("list_vals", list_vals)
-            # assert False
         else:
             list_names, list_vals = separate_names_and_vals(flat)
             x_values = np.arange(len (list_vals))   #np.asarray(idx_object[0])
@@ -344,34 +294,44 @@ for file in os.listdir('puzzles_4x4_' + suffix + '/'):
     #         print("img file", img_file)
     #         witness_puzzle.save_figure (img_file)
 
+def count_each_category():
+    # counts how many puzzles belong to each category
+    # if "MaxDotProd" in file:
+    #     print("dotprod file", file)
+    #     some_dict = {}  # TODO: debug
+    #     # object[0][1] = Rank_DotProds
+    #     total = 0
 
-
-
-# used to be inside plot_data:
-    # print(title_name)
-    # if "New_metric" in filename_to_save_fig:
-    #     # zoomed_title = "Zoomed New Metric"
-    #     string_list = filename_to_save_fig.split ("plots/")
-    #     zoomed_filename_to_save_fig = string_list[0] + "plots/" + "Zoom_" + string_list[1]
-    #     print("zoomed_filename_to_save_fig", zoomed_filename_to_save_fig)
-    #     plt.ylim(ymin=-0.2, ymax=2)
-    #     # plt.title (title_name)
-    #     plt.show()
-        # plt.savefig (zoomed_filename_to_save_fig)
-        # plt.close()
-    # elif "Levin Cost" in title_name:
-    #     zoomed_title = "Zoomed Levin Cost"
-    # elif "Cosines" in title_name:
-    #     zoomed_title = "Zoomed " + title_name
-    # else:
-    #     zoomed_title = "Zoomed " + title_name
-    #
-
-# used to be under if Rank in file:
-    # for i, sub_sublist in enumerate(object[0]):
-    #     print("len(sub_sublist) =", len(sub_sublist))
-    #     for tuple_el in sub_sublist:
-    #         p_name = tuple_el[0]
-    #         if "wit" in p_name:
-    #             print("pname ", p_name, " found in sublist ", i)
+    # count how many puzzles belong to each category:
+    # for i, sublist in enumerate(object[0]):
+    #     # sublist_dict = {"1x2": 0, "1x3": 0, "2x2": 0, "3x3": 0, "4x4": 0, "w": []}
+    #     L = len(sublist)
+    #     print("len(sublist) =", L)
+    #     total += L
+    # #     # TODO:
+    # #     for tup_item in sublist:
+    # #         name = tup_item[0]
+    # #         if "1x2" in name:
+    # #             sublist_dict["1x2"] += 1
+    # #         elif "1x3" in name:
+    # #             sublist_dict["1x3"] += 1
+    # #         elif "2x2" in name:
+    # #             sublist_dict["2x2"] += 1
+    # #         elif "3x3" in name:
+    # #             sublist_dict["3x3"] += 1
+    # #         elif "4x4" in name:
+    # #             sublist_dict["4x4"] += 1
+    # #         else:
+    # #             new_name = map_witness_puzzles_to_dims(name)
+    # #             sublist_dict[new_name] += 1
+    # #             sublist_dict['w'] += [name]
+    # #     some_dict["sublist_" + str(i)] = sublist_dict
+    # # print("some_dict =", some_dict)
+    # # print("")
+    # print("total", total)
     # print("")
+
+    # save_data_to_disk (some_dict,
+    #                    join (dict_folder,
+    #                          'Average_Levin_Cost_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
+    pass

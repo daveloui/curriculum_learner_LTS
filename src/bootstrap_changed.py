@@ -14,51 +14,15 @@ random.seed (1)
 np.random.seed (1)
 tf.random.set_seed (1)
 
-
 from models.memory import Memory, MemoryV2
 from compute_cosines import retrieve_batch_data_solved_puzzles, check_if_data_saved, retrieve_all_batch_images_actions, \
     compute_cosines, save_data_to_disk, find_argmax, compute_levin_cost, find_minimum, compute_rank, compute_rank_mins
 from save_while_for_loop_states import save_while_loop_state, restore_while_loop_state
 
 
-class ProblemNode:
-    def __init__(self, k, n, name, instance):
-        self._k = k
-        self._n = n
-        self._name = name
-        self._instance = instance
-
-        self._cost = 125 * (4 ** (self._k - 1)) * self._n * self._k * (self._k + 1)
-
-    def __lt__(self, other):
-        """
-        Function less-than used by the heap
-        """
-        if self._cost != other._cost:
-            return self._cost < other._cost
-        else:
-            return self._k < other._k
-
-    def get_budget(self):
-        budget = 125 * (4 ** (self._k - 1)) * self._n - (125 * (4 ** (self._k - 1) * (self._n - 1)))
-        return budget
-
-    def get_name(self):
-        return self._name
-
-    def get_k(self):
-        return self._k
-
-    def get_n(self):
-        return self._n
-
-    def get_instance(self):
-        return self._instance
-
-
 class Bootstrap:
-    def __init__(self, states, output, scheduler, use_GPUs=False, ncpus=1, initial_budget=1, gradient_steps=10):
-        # parallelize_with_NN=True):
+    def __init__(self, states, output, scheduler, use_GPUs=False, ncpus=1, initial_budget=1, gradient_steps=10,
+                 k_expansions=1): # parallelize_with_NN=True):
 
         self._states = states
         self._model_name = output
@@ -68,17 +32,16 @@ class Bootstrap:
         self._initial_budget = initial_budget
         self._gradient_steps = gradient_steps
 
-        self._batch_size = 32
-        self._kmax = 10
+        self._batch_size = 2  #32
         self._scheduler = scheduler
         # self._parallelize_with_NN = parallelize_with_NN
 
         self._all_puzzle_names = set (states.keys ())  ## FD what do we use this for?
         self._puzzle_dims = self._model_name.split ('-')[0]  # self._model_name has the form '<puzzle dimension>-<problem domain>-<loss name>'
 
-        self._log_folder = 'logs_large/' + self._puzzle_dims  # + "_debug_data"
-        self._models_folder = 'trained_models_large/BreadthFS_' + self._model_name  # + "_debug_data"
-        self._ordering_folder = 'solved_puzzles/puzzles_' + self._puzzle_dims  # + "_debug_data"
+        self._log_folder = 'logs_large/' + self._puzzle_dims + "_k=" + str(k_expansions)  # + "_debug_data"
+        self._models_folder = 'trained_models_large/BreadthFS_' + self._model_name + "_k=" + str(k_expansions)  # + "_debug_data"
+        self._ordering_folder = 'solved_puzzles/puzzles_' + self._puzzle_dims + "_k=" + str(k_expansions)  # + "_debug_data"
 
         if not os.path.exists (self._models_folder):
             os.makedirs (self._models_folder, exist_ok=True)
@@ -146,7 +109,7 @@ class Bootstrap:
 
         print ("")
         # # TODO: debug
-        # already_skipped = False
+        already_skipped = False
         # # end debug
 
         while_loop_iter = 1  # TODO: debug
@@ -164,11 +127,7 @@ class Bootstrap:
             j = 0
             P = []
             n_P = 0
-            for name, state in self._states.items ():  # iterate through all the puzzles, try to solve however many you have with a current budget
-                # at the start of each for loop, batch_problems is either empty, or it contains exactly self._batch_size puzzles
-                # number_solved is either 0 or = the number of puzzles solved with the current budget
-                # at_least_one_got_solved is either still False (no puzzle got solved with current budget) or is True
-                # memory has either 0 solution trajectories or at least one solution trajectory
+            for name, state in self._states.items ():
                 batch_problems[name] = state
 
                 if len (batch_problems) < self._batch_size and last_puzzle != name:
@@ -176,7 +135,6 @@ class Bootstrap:
 
                 j += 1
                 num_states_still_to_try_to_solve = self._number_problems - (j * self._batch_size)
-                # once we have self._batch_size puzzles in batch_problems, we look for their solutions and train NN
 
                 if parallelize_with_NN:
                     chunk_size_heuristic = math.ceil (len (batch_problems) / (self._ncpus * 4))
@@ -190,16 +148,16 @@ class Bootstrap:
                         total_expanded += result[2]  # ??
                         total_generated += result[3]  # ??
                         puzzle_name = result[4]
-                        # print ("puzzle name", puzzle_name)
-                        # # TODO: for debug:
-                        # if '2x2_' in name and not already_skipped:
-                        #     already_skipped = True
-                        #     print ("inside clause -- puzzle_name", puzzle_name)
-                        #     continue
+                        print ("puzzle name", puzzle_name)
+                        # TODO: for debug:
+                        if '2x2_' in puzzle_name and not already_skipped:
+                            already_skipped = True
+                            print ("inside clause -- puzzle_name", puzzle_name)
+                            continue
                         # end debug
 
                         if has_found_solution:
-                            memory.add_trajectory (trajectory)  # stores trajectory object into a list (the list contains instances of the Trajectory class)
+                            memory.add_trajectory (trajectory, puzzle_name)  # stores trajectory object into a list (the list contains instances of the Trajectory class)
 
                         if has_found_solution and puzzle_name not in current_solved_puzzles:
                             number_solved += 1
@@ -207,54 +165,24 @@ class Bootstrap:
                             memory_v2.add_trajectory (trajectory, puzzle_name)
                             P += [puzzle_name]
                             n_P += 1
-                            # memory_v2 -- only captures the new solutions for new puzzles
-                            # this means that we would save the solutions found the first time they are solved (not the new solutions)
-                            # P only contains the names of puzzles that are recently solved
-                            # if a puzzle was solved before (under different weights, or a different budget), then we do not add the puzzle to P
 
                     print ("")
-                    print ("time spent on for loop so far = ", time.time () - s_for_loop)
-                    print ("num puzzles we still need to try to solve =",
-                           num_states_still_to_try_to_solve)
-                    print ("number of puzzles we have tried to solve already", (j * self._batch_size))
-                    print ("puzzles solved so far (in total, over all while loop/for loop iterations)",
-                           len (current_solved_puzzles))
-                    print ("number of puzzles solved in the current while loop iteration =", number_solved)
+                    print("n_P", n_P, "len(P)", len(P), "P=", P, "number_solved =", number_solved)
+                    print("memory._puzzle_names", memory._puzzle_names)
+                    print("memory_v2.dict", memory_v2.dict.keys())
+                    # print ("time spent on for loop so far = ", time.time() - s_for_loop)
+                    # print ("num puzzles we still need to try to solve =",
+                    #        num_states_still_to_try_to_solve)
+                    # print ("number of puzzles we have tried to solve already", (j * self._batch_size))
+                    # print ("puzzles solved so far (in total, over all while loop/for loop iterations)",
+                    #        len (current_solved_puzzles))
+                    # print ("number of puzzles solved in the current while loop iteration =", number_solved)
                     print ("")
-                else:
-                    s_solve_puzzles = time.time ()
-                    for name, state in batch_problems.items ():
-                        args = (state, name, budget, nn_model)
-                        # with tf.device ('/GPU:0'):
-                        has_found_solution, trajectory, total_expanded, total_generated, puzzle_name = planner.search_for_learning (
-                            args)
-                        if has_found_solution:
-                            memory.add_trajectory (trajectory)
-
-                        if has_found_solution and puzzle_name not in current_solved_puzzles:
-                            number_solved += 1
-                            current_solved_puzzles.add (puzzle_name)
-                            memory_v2.add_trajectory (trajectory, puzzle_name)
-                            P += [puzzle_name]
-                            n_P += 1
-                    e_solve_puzzles = time.time ()
-                    print ("time to solve batch of ", self._batch_size, "= ", e_solve_puzzles - s_solve_puzzles)
 
                 batch_problems.clear ()  # at the end of the bigger for loop, batch_problems == {}
 
-            print ("time for for loop to go over all puzzles =", time.time () - s_for_loop)
-
-            # before training, we compute the debug data
-            # we only compute the cosine data with puzzles that are newly solved (with current weights and current budget).
-            # I think this is fine. Otherwise, if P += [puzzle_name] was in the first "if statement", then we would be
-            # computing the cosines of all puzzles (whether they were solved previously or not)
             if n_P > 0:
-                # if self.use_GPUs:
-                # with tf.device ('/GPU:0'):
                 batch_images_P, batch_actions_P = retrieve_batch_data_solved_puzzles (P, memory_v2)
-                                                # function retrieve_batch_data_solved_puzzles also stores images_P and
-                                                # actions_P in dictionary (for each puzzle)
-
                 cosine_P, dot_prod_P, new_metric_P, theta_diff = compute_cosines (nn_model, self._models_folder,
                                                                                   None, False, batch_images_P,
                                                                                   batch_actions_P)
@@ -262,14 +190,11 @@ class Bootstrap:
                 #         if you want to compare theta_{i+1} to theta_i, 3rd argument must be while_loop_iter
                 levin_cost_P, average_levin_cost_P, training_loss_P = compute_levin_cost (batch_images_P,
                                                                                           batch_actions_P, nn_model)
-
                 # TODO: uncomment the following:
                 argmax_p_dot_prods, Rank_dot_prods, argmax_p_cosines, Rank_cosines, argmax_p_new_metric, Rank_new_metric\
                     = compute_rank (P, nn_model, theta_diff, memory_v2, self._ncpus, 19, n_P, parallelize_with_NN)
-
                 argmin_p_levin_score, Rank_levin_scores = compute_rank_mins (P, nn_model, memory_v2, self._ncpus, 19,
                                                                              n_P, parallelize_with_NN)
-
                 ordering_new_metric.append (argmax_p_new_metric)
                 Rank_max_new_metric.append (Rank_new_metric)
                 ordering_dot_prods.append (argmax_p_dot_prods)
@@ -279,7 +204,7 @@ class Bootstrap:
 
                 ordering_levin_scores.append (argmin_p_levin_score)
                 Rank_min_costs.append (Rank_levin_scores)
-                print ("len (ordering_dot_prods) =", len (ordering_dot_prods))
+                # print ("len (ordering_dot_prods) =", len (ordering_dot_prods))
                 # TODO: finish uncommenting the above
 
                 self._new_metric_data_P.append(new_metric_P)
@@ -289,29 +214,26 @@ class Bootstrap:
                 self._average_levin_costs_P.append(average_levin_cost_P)
                 self._training_losses_P.append(training_loss_P)
 
-                print ("len(P) =", len (P))
                 print("while_loop_iter =", while_loop_iter)
 
                 idx = indexes_rank_data[-1]
                 indexes_rank_data.append (idx + n_P)
                 if indexes_rank_data[0] == 0:
                     indexes_rank_data = indexes_rank_data[1:]
+                memory_v2.clear ()
 
             print ("")
             print ("")
             print ("NOW TRAINING -----------------")
-            # if self.use_GPUs:
-            # with tf.device ('/GPU:0'):
+            print("memory.number_trajectories", memory.number_trajectories())
+            print("memory_v2.number_trajectories()", memory_v2.number_trajectories())
             if memory.number_trajectories () > 0:  # if you have solved at least one puzzle with given budget, then:
                                                    # before the for loop starts, memory has at least 1 solution trajectory
                                                    # and we have not yet trained the NN with  any of the puzzles solved
                                                    # with current budget and stored in memory
-                # epsilon = 0.1
                 for _ in range (self._gradient_steps):
                     loss = nn_model.train_with_memory (memory)
                     print ('Loss: ', loss)
-                    # if loss < epsilon:
-                    #     break
                 memory.clear ()
                 while_loop_iter += 1
             print ("finished training -----------")
