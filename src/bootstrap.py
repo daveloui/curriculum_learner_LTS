@@ -440,7 +440,7 @@ class Bootstrap:
                                join (self._ordering_folder,
                                      'Training_Loss_over_P_theta_n-theta_i_' + str (self._puzzle_dims) + ".pkl"))
 
-            nn_model.save_weights (join (self._models_folder, "Final_weights_n.h5"))
+            nn_model.save_weights (join (self._models_folder, "Final_weights_n-i.h5"))
 
 
     def solve_problems(self, planner, nn_model, parameters):
