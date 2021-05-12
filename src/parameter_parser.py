@@ -16,6 +16,7 @@ def parameter_parser():
                          help='Name of the folder of the neural model')
 
     parser.add_argument ('-a', action='store', dest='search_algorithm',
+                         default='Levin',
                          help='Name of the search algorithm (Levin, LevinStar, AStar, GBFS, PUCT, DFS-Levin)')
 
     parser.add_argument ('-d', action='store', dest='problem_domain',

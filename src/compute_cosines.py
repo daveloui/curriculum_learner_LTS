@@ -208,14 +208,13 @@ def map_zero_denom (dot_prod_p_vs_T):
 
 def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="all_metrics"):
     # grads_P is a list of tensors
-    # print("")
-    # print("inside compute_and_save_cosines_helper_func")
     l_theta_diff = []
     l_grads_P = []
     for i, tensor in enumerate(theta_diff):
         assert tensor.shape == grads_P[i].shape
         l_theta_diff.append(tf.keras.backend.flatten(tensor))
         l_grads_P.append(tf.keras.backend.flatten(grads_P[i]))    # where the error happens
+
     theta_diff = tf.concat (l_theta_diff, axis=0)
     grads_P = tf.concat (l_grads_P, axis=0)
     assert theta_diff.shape[0] == grads_P.shape
@@ -245,14 +244,13 @@ def compute_and_save_cosines_helper_func (theta_diff, grads_P, label="all_metric
 
 
 def retrieve_final_NN_weights(models_folder, iter=None): #, weights_filename="pretrained_weights.h5"): # TODO: now we must include the iteration number in the weights
-
     # Note: if we are in iteration i, that means that the file pretrained_weights_i.h5 contains the weights AFTER training, saved in iteration i
     if iter is None:
         weights_filename = "Final_weights_n-i.h5"  # "pretrained_weights_" + str(iter) + ".h5"
     else:
         weights_filename = "pretrained_weights_" + str(iter) + ".h5"
     full_filename = join (models_folder, weights_filename)
-    print("full filename for saved pretrained or Final weights", full_filename)
+    # print("full filename for saved pretrained or Final weights", full_filename)
     # create toy NN:
     new_model = TempConvNet ((2, 2), 32, 4, 'CrossEntropyLoss')
     new_model.load_weights(full_filename)
@@ -271,11 +269,9 @@ def get_grads_and_CEL_from_batch(array_images, array_labels, theta_model):
 
 def compute_cosines(theta_model, models_folder, iter=None, debugging=False, batch_images_P=None, batch_actions_P=None):
     # TODO: inputs used to be: batch_images_P, batch_actions_P, theta_model, models_folder, parameters
-
     theta_i = theta_model.retrieve_layer_weights()  # shape is (128, 4)
     theta_n, _ = retrieve_final_NN_weights(models_folder, iter)
     theta_diff = [tf.math.subtract (a_i, b_i, name=None) for a_i, b_i in zip (theta_i, theta_n)]
-
     if (batch_actions_P is not None) and (batch_images_P is not None):
         grads_P = get_grads_and_CEL_from_batch (batch_images_P, batch_actions_P, theta_model) # TODO: used to be uncommented  # _, _, last_grads_P
         cosine_P, dot_prod_P, new_metric_P = compute_and_save_cosines_helper_func (theta_diff, grads_P)
@@ -429,6 +425,7 @@ def compute_rank_mins (P_list, nn_model, memory_model, ncpus, chunk_size, n_P, p
 
 def compute_levin_cost(P_batch_states, P_batch_actions, theta_model):
     loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
+
     _, _, logits_preds = theta_model.call (P_batch_states)
     # print("logits_preds.shape[0] =", logits_preds.shape[0])
     assert logits_preds.shape[0] == P_batch_states.shape[0]

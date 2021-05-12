@@ -93,7 +93,6 @@ class TwoHeadedConvNet (tf.keras.Model):
 
         x2 = self.dense21 (x_flatten)
         logits_h = self.dense22 (x2)
-
         return x_log_softmax, x_softmax, logits_pi, logits_h
 
     def train_with_memory(self, memory):
@@ -188,7 +187,15 @@ class ConvNet (tf.keras.Model):
         logits = self.dense2 (x)
         x_softmax = tf.nn.softmax (logits)
         x_log_softmax = tf.nn.log_softmax (logits)
+        # print("x_log_softmax", x_log_softmax)
+        # print("x_softmax", x_softmax)
+        # print("logits", logits)
 
+        # print("")
+        # print("x_softmax", x_softmax)
+        # summat = tf.math.reduce_sum(x_softmax)
+        # print("num_states =", x_softmax.shape[0], "sum of x_softmax =", summat)
+        # assert False
         return x_log_softmax, x_softmax, logits
 
     def _cross_entropy_loss(self, states, y):

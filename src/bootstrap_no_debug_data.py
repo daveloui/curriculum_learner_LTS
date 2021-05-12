@@ -57,8 +57,8 @@ class ProblemNode:
 
 
 class Bootstrap_No_Debug:
-    def __init__(self, states, output, scheduler, use_GPUs=False, ncpus=1, initial_budget=1, gradient_steps=10):
-        # parallelize_with_NN=True):
+    def __init__(self, states, output, scheduler, use_GPUs=False, ncpus=1, initial_budget=1, gradient_steps=10,
+                 k_expansions=1):  # parallelize_with_NN=True):
 
         self._states = states
         self._model_name = output
@@ -69,16 +69,15 @@ class Bootstrap_No_Debug:
         self._gradient_steps = gradient_steps
         #         self._k = ncpus * 3
         self._batch_size = 32
-        self._kmax = 10
         self._scheduler = scheduler
 
         self._all_puzzle_names = set (states.keys ())  ## FD what do we use this for?
         self._puzzle_dims = self._model_name.split ('-')[0]  # self._model_name has the form
         # '<puzzle dimension>-<problem domain>-<loss name>'
 
-        self._log_folder = 'logs_large/' + self._puzzle_dims
-        self._models_folder = 'trained_models_large/BreadthFS_' + self._model_name
-        self._ordering_folder = 'solved_puzzles/puzzles_' + self._puzzle_dims
+        self._log_folder = 'logs_large/' + self._puzzle_dims + "_k=" + str(k_expansions)
+        self._models_folder = 'trained_models_large/BreadthFS_' + self._model_name + "_k=" + str(k_expansions)
+        self._ordering_folder = 'solved_puzzles/puzzles_' + self._puzzle_dims + "_k=" + str(k_expansions)
 
         if not os.path.exists (self._models_folder):
             os.makedirs (self._models_folder, exist_ok=True)
@@ -164,7 +163,6 @@ class Bootstrap_No_Debug:
                         total_expanded += result[2]  # ??
                         total_generated += result[3]  # ??
                         puzzle_name = result[4]
-                        print ("puzzle name", puzzle_name)
                         # # TODO: for debug:
                         # if ('2x2_' in puzzle_name) and (not already_skipped):
                         #     already_skipped = True
@@ -273,7 +271,7 @@ class Bootstrap_No_Debug:
                len (current_solved_puzzles) == self._number_problems)
         if len (current_solved_puzzles) == self._number_problems: # and iteration % 5 != 0.0:
             nn_model.save_weights (join (self._models_folder,
-                                         "Final_weights_NoDebug.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
+                                         "Final_weights_n-i.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
             memory_v2.save_data ()
 
     def solve_problems(self, planner, nn_model, parameters):

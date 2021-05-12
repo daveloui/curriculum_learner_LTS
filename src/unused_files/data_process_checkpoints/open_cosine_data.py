@@ -235,7 +235,7 @@ def find_solution(sublist, nn_model, loss_func):
 def retrieve_min_cost_puzzles(dict_p_dur_peaks):
     model_name = '4x4-Witness-CrossEntropyLoss'
     models_folder = 'trained_models_large/BreadthFS_' + model_name + "/"
-    filename = "Final_weights.h5"
+    filename = "Final_weights_n-i.h5"
     _, temp_model = retrieve_final_NN_weights(models_folder, filename)
     loss_func = tf.keras.losses.CategoricalCrossentropy (from_logits=True)
 

@@ -692,7 +692,7 @@ class Bootstrap:
                     # because we only need puzzles solved in current while-loop iteration, not all puzzles solved in all iterations!
             #     # TODO !!!! save_data_to_disk must use append mode, not write mode
 
-        nn_model.save_weights (join(self._models_folder, "Final_weights.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
+        nn_model.save_weights (join(self._models_folder, "Final_weights_n-i.h5"))  # nn_model.save_weights (join (self._models_folder, 'model_weights'))
         memory_v2.save_data ()  # FD
 
     def _solve_uniform(self, planner, nn_model):

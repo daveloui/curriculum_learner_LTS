@@ -68,12 +68,15 @@ class Memory ():
     def __init__(self):
         self._trajectories = []
         self._max_expanded = -sys.maxsize
+        self._puzzle_names = []
 
-    def add_trajectory(self, trajectory):
+    def add_trajectory(self, trajectory, puzzle_name):
         if trajectory.get_expanded () > self._max_expanded:
             self._max_expanded = trajectory.get_expanded ()
-
         self._trajectories.append (trajectory)
+
+        if puzzle_name not in self._puzzle_names:
+            self._puzzle_names += [puzzle_name]
 
     def shuffle_trajectories(self):
         self._random_indices = np.random.permutation (len (self._trajectories))
@@ -95,6 +98,7 @@ class Memory ():
     def clear(self):
         self._trajectories.clear ()
         self._max_expanded = -sys.maxsize
+        self._puzzle_names = []
 
 
 class MemoryV2 ():
@@ -104,7 +108,6 @@ class MemoryV2 ():
     self.dict: a dictionary whose keys are = self.position,
             whose values are a list containing the trajectory data (data on states and actions)
     '''
-
     def __init__(self, path_to_save_data, puzzle_dims, how_do_we_add_puzzle_solutions):
         self.position = 1  # GET RID OF THIS
         self.dict = {}
@@ -122,23 +125,14 @@ class MemoryV2 ():
             self.save_mode = 'ab'
 
     def add_trajectory(self, trajectory_obj, puzzle_name):
-        # if puzzle_name in self.dict.keys ():
-        #     return
-        # else:
         new_trajectory_obj = TrajectoryV2 (trajectory_obj._states, trajectory_obj._actions)
-        # print("inside add_trajectory -- states", trajectory_obj._states)
-        # print("inside add_trajectory -- actions", trajectory_obj._actions)
         new_trajectory_obj.process_states ()
         self.dict[puzzle_name] = [self.position, new_trajectory_obj.states_data, trajectory_obj._actions]
-        # print ("self.dict[puzzle_name]", self.dict[puzzle_name])
         self.position += 1
-
-        # added:
         self.trajectories_dict[puzzle_name] = trajectory_obj
 
-    def add_trajectory_debug(self, states, actions):
-        pass
-
+    def number_trajectories(self):
+        return len (self.trajectories_dict)
 
     def save_trajectories_dict(self):
         new_dict = {}
@@ -151,7 +145,6 @@ class MemoryV2 ():
         start = time.time ()
         filename = 'BFS_memory_' + self.puzzle_dims + '.pkl'
         filename = os.path.join (self.path_to_save_data, filename)
-        # np.save (filename, self.dict) #np.savez (filename, **self.dict)
 
         with open (filename, self.save_mode) as fout:
             cPickle.dump (self.dict, fout, protocol=cPickle.HIGHEST_PROTOCOL)
@@ -169,4 +162,7 @@ class MemoryV2 ():
     def retrieve_labels(self, puzzle_name):
         return self.dict_images_actions[puzzle_name][1]
 
-
+    def clear(self):
+        self.dict = {}
+        self.dict_images_actions = {}
+        self.trajectories_dict = {}

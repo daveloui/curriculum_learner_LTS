@@ -287,6 +287,16 @@ class BFSLevin ():
         action_distribution_log = np.log (
             (1 - self._mix_epsilon) * action_distribution + (self._mix_epsilon * (1 / action_distribution.shape[1])))
 
+        # print( " ------ debug --------")
+        # a, action_distribution = nn_model.predict(np.array([state.get_image_representation()]))
+        # print("a =", a)
+        # print("action distribution log", action_distribution_log)
+        #
+        # print("")
+        # action_distribution_log = np.log(
+        #     (1 - self._mix_epsilon) * action_distribution + (self._mix_epsilon * (1 / action_distribution.shape[1])))
+        # print("NEW action_distribution_log", action_distribution_log)
+
         node = TreeNode (None, state, 1, 0, 0, -1)
         node.set_probability_distribution_actions (action_distribution_log[0])
 
@@ -300,13 +310,13 @@ class BFSLevin ():
         x_input_of_children_to_be_evaluated = []
 
         while len (_open) > 0:
-
             node = heapq.heappop (_open)
-
             expanded += 1
 
             actions = node.get_game_state ().successors_parent_pruning (node.get_action ())
             probability_distribution_log = node.get_probability_distribution_actions ()
+            # print("probability_distribution_log for node's actions", probability_distribution_log)
+            # assert False
 
             if expanded >= budget:
                 return False, None, expanded, generated, puzzle_name
@@ -318,7 +328,6 @@ class BFSLevin ():
 
                 child_node = TreeNode (node, child, node.get_p () + probability_distribution_log[a], node.get_g () + 1,
                                        -1, a)
-
                 if child.is_solution ():
                     # print ('Solved puzzle: ', puzzle_name, ' expanding ', expanded, ' with budget: ', budget)
                     trajectory = self._store_trajectory_memory (child_node, expanded)  # a trajectory object

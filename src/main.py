@@ -9,7 +9,7 @@ from models.model_wrapper import KerasManager, KerasModel
 from concurrent.futures.process import ProcessPoolExecutor
 import argparse
 
-from bootstrap import Bootstrap
+from bootstrap_changed import Bootstrap
 from bootstrap_no_debug_data import Bootstrap_No_Debug
 from multiprocessing import set_start_method
 
@@ -116,14 +116,12 @@ def main():
     KerasManager.register ('KerasModel', KerasModel)
     ncpus = int (os.environ.get ('SLURM_CPUS_PER_TASK', default=1))
 
-    k_expansions = 32
+    k_expansions = 1 #32
 
     #     print('Number of cpus available: ', ncpus)
 
     with KerasManager () as manager:
-
         nn_model = manager.KerasModel ()
-
         bootstrap = None
 
         if parameters.learning_mode:
@@ -133,14 +131,16 @@ def main():
                                        bool (int (parameters.use_GPU)),
                                        ncpus=ncpus,
                                        initial_budget=int (parameters.search_budget),
-                                       gradient_steps=int (parameters.gradient_steps))
+                                       gradient_steps=int (parameters.gradient_steps),
+                                       k_expansions=k_expansions)
             else:
                 bootstrap = Bootstrap_No_Debug (states, parameters.model_name,
                                        parameters.scheduler,
                                        bool (int (parameters.use_GPU)),
                                        ncpus=ncpus,
                                        initial_budget=int (parameters.search_budget),
-                                       gradient_steps=int (parameters.gradient_steps))
+                                       gradient_steps=int (parameters.gradient_steps),
+                                       k_expansions=k_expansions)
 
 
         if parameters.search_algorithm == 'Levin' or parameters.search_algorithm == 'LevinStar':
