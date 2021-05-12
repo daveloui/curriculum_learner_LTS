@@ -90,7 +90,6 @@ class Bootstrap_No_Debug:
 
         self._cosine_data = []
         self._dot_prod_data = []
-        # self._dict_cos = {}
         self._levin_costs = []
         self._average_levin_costs = []
         self._training_losses = []
@@ -215,8 +214,6 @@ class Bootstrap_No_Debug:
                 for _ in range (self._gradient_steps):
                     loss = nn_model.train_with_memory (memory)
                     print ('Loss: ', loss)
-                    # if loss < epsilon:
-                    #     break
                 memory.clear ()
                 nn_model.save_weights (
                     join (self._models_folder, "pretrained_weights_" + str (while_loop_iter) + ".h5"))
