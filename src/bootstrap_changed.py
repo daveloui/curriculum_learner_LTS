@@ -108,11 +108,11 @@ class Bootstrap:
             # #TODO: because: pretend that program ends at end of while loop iteration -- then we need to just go through the inside of loop, as we would have without breakpoint
 
         print ("")
-        # # TODO: debug
+        # # TODO: puzzles_small
         already_skipped = False
-        # # end debug
+        # # end puzzles_small
 
-        while_loop_iter = 1  # TODO: debug
+        while_loop_iter = 1  # TODO: puzzles_small
         while len (current_solved_puzzles) < self._number_problems:
             number_solved = 0
             batch_problems = {}
@@ -149,12 +149,12 @@ class Bootstrap:
                         total_generated += result[3]  # ??
                         puzzle_name = result[4]
                         print ("puzzle name", puzzle_name)
-                        # TODO: for debug:
+                        # TODO: for puzzles_small:
                         if '2x2_' in puzzle_name and not already_skipped:
                             already_skipped = True
                             print ("inside clause -- puzzle_name", puzzle_name)
                             continue
-                        # end debug
+                        # end puzzles_small
 
                         if has_found_solution:
                             memory.add_trajectory (trajectory, puzzle_name)  # stores trajectory object into a list (the list contains instances of the Trajectory class)

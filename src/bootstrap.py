@@ -165,12 +165,12 @@ class Bootstrap:
                 self.total_expanded += result[2]  # ??
                 self.total_generated += result[3]  # ??
                 puzzle_name = result[4]
-                # # TODO: for debug:
+                # # TODO: for puzzles_small:
                 # if '2x2_' in name and not already_skipped:
                 #     already_skipped = True
                 #     print ("inside clause -- puzzle_name", puzzle_name)
                 #     continue
-                # end debug
+                # end puzzles_small
 
                 if has_found_solution:
                     self.memory.add_trajectory (
@@ -306,7 +306,7 @@ class Bootstrap:
                 self._batch_problems.clear ()  # at the end of the bigger for loop, batch_problems == {}
 
             print ("time for for loop to go over all puzzles =", time.time () - self._s_for_loop)
-            # before training, we compute the debug data:
+            # before training, we compute the puzzles_small data:
             self.compute_debug_data (nn_model)
 
             print ("")

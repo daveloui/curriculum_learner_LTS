@@ -109,12 +109,12 @@ class CrossEntropyLoss (LossFunction):
         images = [s.get_image_representation () for s in trajectory.get_states ()]
         actions_one_hot = tf.one_hot (trajectory.get_actions (), model.get_number_actions ())
         array_images = np.array (images)
-        # print("debug =========")
+        # print("puzzles_small =========")
         # # x_log_softmax, x_softmax, logits = model.call (array_images)
         # # print(x_softmax)
         # # print(actions_one_hot)
         # # assert False
-        # print("end debug ========")
+        # print("end puzzles_small ========")
         _, _, logits = model.call (array_images)
 
         weights = model.get_weights ()

@@ -247,7 +247,7 @@ class BFSLevin ():
         actions.append (action)
         solution_costs.append (cost)
 
-        # # for debug
+        # # for puzzles_small
         # print("states", states)
         # print("actions", actions)
         # print("solution_costs", solution_costs)
@@ -287,7 +287,7 @@ class BFSLevin ():
         action_distribution_log = np.log (
             (1 - self._mix_epsilon) * action_distribution + (self._mix_epsilon * (1 / action_distribution.shape[1])))
 
-        # print( " ------ debug --------")
+        # print( " ------ puzzles_small --------")
         # a, action_distribution = nn_model.predict(np.array([state.get_image_representation()]))
         # print("a =", a)
         # print("action distribution log", action_distribution_log)

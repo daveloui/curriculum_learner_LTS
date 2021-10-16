@@ -96,7 +96,7 @@ def store_batch_data_solved_puzzles(puzzles_list, memory_v2, puzzle_dims):
     pickle.dump (d, outfile)
     outfile.close ()
 
-    # TODO debug
+    # TODO puzzles_small
     # objects = open_pickle_file(filename)
     # print(type(objects[0]))
     # for k, v in objects[0].items():
