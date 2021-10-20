@@ -90,11 +90,11 @@ def main():
             if not parameters.load_debug_data:
                 print("no loading")
                 bootstrap = Bootstrap_No_Debug (states, parameters.model_name,
-                                       parameters.scheduler,
-                                       ncpus=ncpus,
-                                       initial_budget=int (parameters.search_budget),
-                                       gradient_steps=int (parameters.gradient_steps),
-                                       k_expansions=k_expansions)
+                                                parameters.scheduler,
+                                                ncpus=ncpus,
+                                                initial_budget=int (parameters.search_budget),
+                                                gradient_steps=int (parameters.gradient_steps),
+                                                k_expansions=k_expansions)
 
             else:
                 print("loading")
@@ -102,7 +102,8 @@ def main():
                                        parameters.scheduler,
                                        ncpus=ncpus,
                                        initial_budget=int (parameters.search_budget),
-                                       gradient_steps=int (parameters.gradient_steps)) #,k_expansions=k_expansions)
+                                       gradient_steps=int (parameters.gradient_steps),
+                                       params_diff=parameters.params_diff)
 
         if parameters.search_algorithm == 'Levin' or parameters.search_algorithm == 'LevinStar':
             if parameters.search_algorithm == 'Levin':

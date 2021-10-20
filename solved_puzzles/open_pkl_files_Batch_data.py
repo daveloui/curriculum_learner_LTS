@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
+import argparse
+import ipdb
 
 
 def open_pickle_file(filename):
@@ -54,25 +56,20 @@ def plot_data_mpl(list_values, idxs_new_puzzles, title_name, filename_to_save_fi
 
 
 class Make_Plots:
-    def __init__(self, suffix, num_total_iterations, flag):  # plots_path, puzzles_path,
+    def __init__(self, suffix, flag, puzzle_size):  # plots_path, puzzles_path,
         self.suffix = suffix
-        self.num_total_iterations = num_total_iterations
         self.flag = flag
-
-        self.idxs_solved_batches = \
-        open_pickle_file("puzzles_4x4_" + suffix + "/Idxs_rank_data_BFS_" + suffix + "_4x4.pkl")[0]
-        self.puzzles_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                         "puzzles_4x4_" + suffix + "/puzzle_imgs_Batches")
-        if not os.path.exists(self.puzzles_path):
-            os.makedirs(self.puzzles_path, exist_ok=True)
-        self.plots_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                       "puzzles_4x4_" + suffix + "/plots_Batches")
+        self.puzzle_size = puzzle_size
+        idxs_fname = "Idxs_rank_data_BFS_" + self.suffix + "_" + self.puzzle_size + ".pkl"
+        self.results_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "puzzles_" + self.puzzle_size + \
+                            "_" + self.suffix)
+        assert os.path.isdir(self.results_path)
+        self.idxs_solved_batches = open_pickle_file(os.path.join(self.results_path, idxs_fname))[0]
+        self.plots_path = os.path.join(self.results_path, "plots_Batches")
         if not os.path.exists(self.plots_path):
             os.makedirs(self.plots_path, exist_ok=True)
-        self.results_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'puzzles_4x4_' + suffix + '/')
-        assert os.path.isdir(self.results_path)
 
-    def count_number_new_solved_puzzles(self):
+    def count_number_new_solved_puzzles(self, num_puzzles):
         self.num_New_Puzzles_Solved = []
         x_prev = 0
         for x in self.idxs_solved_batches:
@@ -80,7 +77,7 @@ class Make_Plots:
             self.num_New_Puzzles_Solved += [diff]
             x_prev = x
         print("num_New_Puzzles_Solved in each iteration", self.num_New_Puzzles_Solved)
-        assert sum(self.num_New_Puzzles_Solved) == 2369
+        assert sum(self.num_New_Puzzles_Solved) == num_puzzles
 
     def get_xlabel_and_idxs(self, object):
         if self.flag == "_iterations":
@@ -120,30 +117,43 @@ class Make_Plots:
             self._y_lim_upper = None
             self._y_lim_lower = None
 
-    def walk_through_files(self):
+    def walk_through_files(self, suffix):
         for i, file in enumerate(os.listdir(self.results_path)):
-            prefix = file.split("_4x4.pkl")[0]
+            # prefix = file.split("_4x4.pkl")[0]
             if "Idxs" in file or ".py" in file:
                 continue
 
-            if "_over_P" in file:
-                full_filename = os.path.join(self.results_path, file)  # 'puzzles_4x4_' + suffix + '/' + file
+            if "_over_P" in file and suffix in file:
+                full_filename = os.path.join(self.results_path, file)
                 print("full_filename", full_filename)
                 # open results:
                 object = open_pickle_file(full_filename)[0]
-                # plot data
+                # plot data:
                 self.get_xlabel_and_idxs(object)  # overwrites self.idxs_solved_batches
                 self.get_title_and_limits(file)
-                plots_filename = os.path.join(self.plots_path, prefix + self.flag)
+                plots_filename = os.path.join(self.plots_path, file + self.flag)
                 print("plots_filename", plots_filename)
                 plot_data_html(object, self.idxs_solved_batches, self._title_name, plots_filename,
                                x_label=self._x_label)
                 plot_data_mpl(object, self.idxs_solved_batches, self._title_name, plots_filename,
-                          x_label=self._x_label, y_lim_upper=self._y_lim_upper, y_lim_lower=self._y_lim_lower)
+                              x_label=self._x_label, y_lim_upper=self._y_lim_upper, y_lim_lower=self._y_lim_lower)
 
 
-# the user enters: -----
-# num_total_iterations = 93, flag = "_iterations"
-make_plot = Make_Plots(suffix="theta_n-theta_i", num_total_iterations=93, flag="_iterations")
-make_plot.count_number_new_solved_puzzles()
-make_plot.walk_through_files()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser ()
+    parser.add_argument ('-suffix', action='store', dest='suffix',
+                         default='theta_n-theta_i',
+                         help='Suffix of results files in the subfolder')
+
+    parser.add_argument ('-z', action='store', dest='puzzle_size',
+                         default="4x4",
+                         help='Model name used when the executable main.py was ran')
+
+    parser.add_argument ('-n', action='store', dest='num_puzzles',
+                         default=2369,
+                         help='Total number of puzzles in the folder used when we ran main.py')
+    parameters = parser.parse_args()
+
+    make_plot = Make_Plots(suffix=parameters.suffix, flag="_iterations", puzzle_size=parameters.puzzle_size)
+    make_plot.count_number_new_solved_puzzles(num_puzzles=int(parameters.num_puzzles))
+    make_plot.walk_through_files(suffix=parameters.suffix)

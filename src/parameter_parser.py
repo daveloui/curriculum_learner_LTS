@@ -49,6 +49,11 @@ def parameter_parser():
                          dest='batch_size',
                          help='Batch-size for training the NN.')
 
+    parser.add_argument('-diff', action='store', default='final',
+                        dest='params_diff',
+                        help='Whether we subtract theta_n-theta_i (final) or theta_i+1-theta_i (subsequent) \
+                        when computing the debugging data')
+
     parser.add_argument ('--default-heuristic', action='store_true', default=False,
                          dest='use_heuristic',
                          help='Use the default heuristic as input')

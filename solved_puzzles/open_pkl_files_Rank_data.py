@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import csv
 import ipdb
-
 from Witness_Puzzle_Image import WitnessPuzzle
 
 
