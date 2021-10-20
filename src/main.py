@@ -1,25 +1,18 @@
-import sys
 import os
-import time
 from os import listdir
 from os.path import isfile, join
+import tensorflow as tf
+import time
+import ipdb
+
 from domains.witness import WitnessState
 from search.bfs_levin import BFSLevin
 from models.model_wrapper import KerasManager, KerasModel
 from concurrent.futures.process import ProcessPoolExecutor
-import argparse
-
-from bootstrap_changed import Bootstrap
+from bootstrap import Bootstrap
 from bootstrap_no_debug_data import Bootstrap_No_Debug
-from multiprocessing import set_start_method
-
-from game_state import GameState
 from parameter_parser import parameter_parser
-
-import tensorflow as tf
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.debugging.set_log_device_placement (True)
-
 os.environ['PYTHONHASHSEED'] = str(1)
 
 
@@ -30,15 +23,12 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
     total_expanded = 0
     total_generated = 0
     total_cost = 0
-
     slack_time = 600
-
     solutions = {}
 
     for name, state in states.items ():
         state.reset ()
         solutions[name] = (-1, -1, -1, -1)
-
     start_time = time.time ()
 
     while len (states) > 0:
@@ -63,7 +53,6 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
                 total_cost += solution_depth
 
         partial_time = time.time ()
-
         if partial_time - start_time + slack_time > time_limit_seconds or len (states) == 0 or search_budget >= 1000000:
             for name, data in solutions.items ():
                 print ("{:s}, {:d}, {:d}, {:d}, {:.2f}".format (name, data[0], data[1], data[2], data[3]))
@@ -78,77 +67,47 @@ def main():
     Levin tree search (LTS) algorithm, or to use a trained neural network with LTS.
     """
     parameters = parameter_parser()
-    if bool(int(parameters.use_GPU)):
-        # print ("inside main")
-        # if tf.test.gpu_device_name ():
-        #     print ('Default GPU Device:{}'.format (tf.test.gpu_device_name ()))
-        # else:
-        #     print ("Please install GPU version of TF")
-        print ("")
-        physical_devices = tf.config.experimental.list_physical_devices ('GPU')
-        print ("Num GPUs Available: ", len (physical_devices))
-        try:
-            tf.config.experimental.set_memory_growth (physical_devices[0], True)
-            print ("passed -- tf.config.experimental.set_memory_growth")
-        except:
-            # Invalid device or cannot modify virtual devices once initialized.
-            print ("did not pass -- tf.config.experimental.set_memory_growth")
-            pass
-        print ("")
-
     states = {}
-
     if parameters.problem_domain == 'Witness':
         puzzle_files = [f for f in listdir (parameters.problems_folder) if
                         isfile (join (parameters.problems_folder, f))]
-
         for file in puzzle_files:
             if '.' in file:
                 continue
             s = WitnessState ()
             s.read_state (join (parameters.problems_folder, file))
             states[file] = s
-
     print ('Loaded ', len (states), ' instances')
-    #     input_size = s.get_image_representation().shape
-    #     set_start_method('forkserver', force=True)
 
     KerasManager.register ('KerasModel', KerasModel)
     ncpus = int (os.environ.get ('SLURM_CPUS_PER_TASK', default=1))
-
     k_expansions = 1 #32
-
-    #     print('Number of cpus available: ', ncpus)
 
     with KerasManager () as manager:
         nn_model = manager.KerasModel ()
         bootstrap = None
-
         if parameters.learning_mode:
-            if parameters.debug_data:
-                bootstrap = Bootstrap (states, parameters.model_name,
-                                       parameters.scheduler,
-                                       bool (int (parameters.use_GPU)),
-                                       ncpus=ncpus,
-                                       initial_budget=int (parameters.search_budget),
-                                       gradient_steps=int (parameters.gradient_steps),
-                                       k_expansions=k_expansions)
-            else:
+            if not parameters.load_debug_data:
+                print("no loading")
                 bootstrap = Bootstrap_No_Debug (states, parameters.model_name,
                                        parameters.scheduler,
-                                       bool (int (parameters.use_GPU)),
                                        ncpus=ncpus,
                                        initial_budget=int (parameters.search_budget),
                                        gradient_steps=int (parameters.gradient_steps),
                                        k_expansions=k_expansions)
 
+            else:
+                print("loading")
+                bootstrap = Bootstrap (states, parameters.model_name,
+                                       parameters.scheduler,
+                                       ncpus=ncpus,
+                                       initial_budget=int (parameters.search_budget),
+                                       gradient_steps=int (parameters.gradient_steps)) #,k_expansions=k_expansions)
 
         if parameters.search_algorithm == 'Levin' or parameters.search_algorithm == 'LevinStar':
-
             if parameters.search_algorithm == 'Levin':
                 bfs_planner = BFSLevin (parameters.use_heuristic, parameters.use_learned_heuristic, False, k_expansions,
                                         float (parameters.mix_epsilon))
-
             else:
                 bfs_planner = BFSLevin (parameters.use_heuristic, parameters.use_learned_heuristic, True, k_expansions,
                                         float (parameters.mix_epsilon))
@@ -158,24 +117,11 @@ def main():
             else:
                 nn_model.initialize (parameters.loss_function, parameters.search_algorithm, two_headed_model=False)
 
-            # If you are not loading data, you create the nn_folder.
-            # Else, if you are loading data from a previous experiment, checkpoint_folder == 'path_to_save_ordering_and_model'
-            if parameters.checkpoint:
-                # puzzle_dims = parameters.model_name.split ('-')[0]
-                nn_folder = 'trained_models_large/BreadthFS_' + parameters.model_name
-                path_to_retrieve_NN = os.path.abspath (nn_folder)
-                print ("path_to_retrieve_NN =", path_to_retrieve_NN)
-                nn_model.load_weights (join (path_to_retrieve_NN, "checkpointed_weights.h5"))
-                print ("passed getting NN weight checkpoint")
-            # TODO: when you are or are not loading files, save sets T and S (or names of puzzles in T and S), or positions of these puzzles
-
             if parameters.learning_mode:
-                print ("parameters.learning_mode is True")
                 solve_problems_start_time = time.time()
                 bootstrap.solve_problems (bfs_planner, nn_model, parameters)
                 solve_problems_end_time = time.time()
                 print("time to execute entire prog =", solve_problems_end_time - solve_problems_start_time)
-                print ("finished executing bootstrap.solve_problems (bfs_planner, nn_model)")
             elif parameters.blind_search:
                 search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
                         int (parameters.search_budget))
@@ -185,8 +131,5 @@ def main():
                         int (parameters.search_budget))
 
 
-
-
 if __name__ == "__main__":
     main()
-    # main2 ()

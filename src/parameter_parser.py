@@ -1,5 +1,4 @@
 import argparse
-import os
 
 
 def parameter_parser():
@@ -13,6 +12,7 @@ def parameter_parser():
                          help='Folder with problem instances')
 
     parser.add_argument ('-m', action='store', dest='model_name',
+                         default="4x4-Witness-CrossEntropyLoss",
                          help='Name of the folder of the neural model')
 
     parser.add_argument ('-a', action='store', dest='search_algorithm',
@@ -41,13 +41,13 @@ def parameter_parser():
     parser.add_argument ('-mix', action='store', dest='mix_epsilon', default='0.0',
                          help='Mixture with a uniform policy')
 
-    parser.add_argument ('-use_GPU', action='store', default='0',
-                         dest='use_GPU',
-                         help='use GPUs?')
-
     parser.add_argument ('-parall', action='store', default='1',
                          dest='parallelize_with_NN',
                          help='Are parallelizing any processes that use the NN?')
+
+    parser.add_argument ('-batch_sz', action='store_true', default='1024',
+                         dest='batch_size',
+                         help='Batch-size for training the NN.')
 
     parser.add_argument ('--default-heuristic', action='store_true', default=False,
                          dest='use_heuristic',
@@ -69,26 +69,15 @@ def parameter_parser():
                          dest='learning_mode',
                          help='Train as neural model out of the instances from the problem folder')
 
-    parser.add_argument ('--debug_data', action='store_true', default=False,
-                         dest='debug_data',
-                         help='Train as neural model out of the instances from the problem folder')
+    parser.add_argument('--load_debug_data', action='store_true', default=False,
+                        dest='load_debug_data',
+                        help='Run program and save debug data (cosines, gradients, etc)')
 
     # new parameters added:
-
     parser.add_argument ('-dropout', action='store_true', default='1.0',
                          dest='dropout_rate',
                          help='The dropout rate is set to 1.0 (for all methods), which means that no dropout is used. '
                               'Currently, DFS-Levin is the only algorithm which uses dropout.')
-
-    parser.add_argument ('-batch_size', action='store_true', default='1024',
-                         dest='batch_size',
-                         help='Batch-size for training the NN.')
-
-    parser.add_argument ('--checkpoint', action='store_true', default=False,
-                         dest='checkpoint',
-                         help='Are we loading data from a checkpoint file?')
-
-
 
     parameters = parser.parse_args ()
 
