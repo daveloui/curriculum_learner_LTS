@@ -6,5 +6,5 @@
 
 module load python/3.6
 module load cuda cudnn
-source ~/tensorflow/bin/activate
+source ~/my_env/bin/activate
 python src/main.py -a ${algorithm} -m ${model} -p ${problem} -l ${loss} -d Witness -b 1 -g 10 -parall 1 -scheduler online --learn
