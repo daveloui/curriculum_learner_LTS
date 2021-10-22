@@ -47,7 +47,6 @@ pip install -r requirements.txt
    The flags and descriptions are provided in `open_pkl_files_Batch_data.py`. When you run this script, a line will print out saying "The plots are found in <subdirectory>".
 
 Case II: You are working locally.
-# TODO: how to set up conda environment?
 1. To install dependencies locally, I prefer to create an anaconda environment, and then install dependencies one by one.
 2. Instead of using sbatch to submit a job, you can directly run `main.py`:
 <pre><code> python main.py --learn </code></pre>
@@ -55,8 +54,6 @@ Case II: You are working locally.
 This runs the experiment with the default arguments. If you wish to select different arguments, go to `src/parameter_parser.py` where the parameter names, flags and descriptions are listed.
 3. Same as step #4 above.
 4. Same as step #5 above.
-
-# TODO: which arguments do I absolutely need to include?
 
 ### How to set up your experiment:
 If using Compute Canada, go to `./FD_get_parameters_BFS.sh` and set the following variables of your experiment:
@@ -79,7 +76,6 @@ This directory contains the most important code that you need to run.
 - `bootstrap_no_debug_data.py`: main algorithm that iterates through all the puzzles found in `problems_dir/` and calls the LTS solver. No cosine or dot-product measurements are computed.
 - `compute_cosines.py`: script that computes the cosines, dot-products and any other measurement that we wish to record.
 - `game_state.py`: script that computes all necessary operations to determine the state of the game.
-- ??
 
 #### solved_puzzles
 Contains all the measurements made: cosines, dot-products, ordering of puzzles, etc.
