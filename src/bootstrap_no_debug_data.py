@@ -51,7 +51,7 @@ class ProblemNode:
 
 
 class Bootstrap_No_Debug:
-    def __init__(self, states, output, scheduler, ncpus=1, initial_budget=1, gradient_steps=10,
+    def __init__(self, states, output, ncpus=1, initial_budget=1, gradient_steps=10,
                  k_expansions=1):
         self._states = states
         self._model_name = output
@@ -60,7 +60,6 @@ class Bootstrap_No_Debug:
         self._initial_budget = initial_budget
         self._gradient_steps = gradient_steps
         self._batch_size = 32
-        self._scheduler = scheduler
         self._all_puzzle_names = set (states.keys ())  ## FD what do we use this for?
         self._puzzle_dims = self._model_name.split ('-')[0]  # self._model_name has the form
         self._log_folder = 'logs_large/' + self._puzzle_dims
@@ -108,14 +107,18 @@ class Bootstrap_No_Debug:
             number_solved = 0
             batch_problems = {}
             s_for_loop = time.time ()
+            print("inside while loop")
 
             j = 0
             for name, state in self._states.items ():  # iterate through all the puzzles, try to solve however many you have with a current budget
                 batch_problems[name] = state
+                print("inside for loop")
 
                 if len (batch_problems) < self._batch_size and last_puzzle != name:
+                    print("here")
                     continue  # we only proceed if the number of elements in batch_problems == self._batch_size
 
+                print("now here")
                 j += 1
                 num_states_still_to_try_to_solve = self._number_problems - (j * self._batch_size)
 
@@ -217,5 +220,4 @@ class Bootstrap_No_Debug:
             memory_v2.save_data ()
 
     def solve_problems(self, planner, nn_model, parameters):
-        if self._scheduler == 'online':
-            self._solve_uniform_online (planner, nn_model, parameters)
+        self._solve_uniform_online (planner, nn_model, parameters)

@@ -56,18 +56,17 @@ def plot_data_mpl(list_values, idxs_new_puzzles, title_name, filename_to_save_fi
 
 
 class Make_Plots:
-    def __init__(self, suffix, flag, puzzle_size):  # plots_path, puzzles_path,
+    def __init__(self, suffix, flag):
         self.suffix = suffix
         self.flag = flag
-        self.puzzle_size = puzzle_size
-        idxs_fname = "Idxs_rank_data_BFS_" + self.suffix + "_" + self.puzzle_size + ".pkl"
-        self.results_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "puzzles_" + self.puzzle_size + \
-                            "_" + self.suffix)
+        idxs_fname = "Idxs_rank_data_BFS_" + self.suffix + ".pkl"
+        self.results_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "puzzles_" + self.suffix)
         assert os.path.isdir(self.results_path)
         self.idxs_solved_batches = open_pickle_file(os.path.join(self.results_path, idxs_fname))[0]
         self.plots_path = os.path.join(self.results_path, "plots_Batches")
         if not os.path.exists(self.plots_path):
             os.makedirs(self.plots_path, exist_ok=True)
+        print("The plots will be found in this directory: ", self.plots_path)
 
     def count_number_new_solved_puzzles(self, num_puzzles):
         self.num_New_Puzzles_Solved = []
@@ -145,15 +144,11 @@ if __name__ == "__main__":
                          default='theta_n-theta_i',
                          help='Suffix of results files in the subfolder')
 
-    parser.add_argument ('-z', action='store', dest='puzzle_size',
-                         default="4x4",
-                         help='Model name used when the executable main.py was ran')
-
     parser.add_argument ('-n', action='store', dest='num_puzzles',
-                         default=2369,
+                         default=5, #2369,
                          help='Total number of puzzles in the folder used when we ran main.py')
     parameters = parser.parse_args()
 
-    make_plot = Make_Plots(suffix=parameters.suffix, flag="_iterations", puzzle_size=parameters.puzzle_size)
+    make_plot = Make_Plots(suffix=parameters.suffix, flag="_iterations")
     make_plot.count_number_new_solved_puzzles(num_puzzles=int(parameters.num_puzzles))
     make_plot.walk_through_files(suffix=parameters.suffix)

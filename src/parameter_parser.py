@@ -8,11 +8,11 @@ def parameter_parser():
                          default='CrossEntropyLoss',
                          help='Loss Function')
 
-    parser.add_argument ('-p', action='store', dest='problems_folder',
+    parser.add_argument ('-p', action='store', dest='problems_folder', default='problems/witness/puzzles_small/',
                          help='Folder with problem instances')
 
     parser.add_argument ('-m', action='store', dest='model_name',
-                         default="4x4-Witness-CrossEntropyLoss",
+                         default="my_NN_model",
                          help='Name of the folder of the neural model')
 
     parser.add_argument ('-a', action='store', dest='search_algorithm',
@@ -20,12 +20,13 @@ def parameter_parser():
                          help='Name of the search algorithm (Levin, LevinStar, AStar, GBFS, PUCT, DFS-Levin)')
 
     parser.add_argument ('-d', action='store', dest='problem_domain',
+                         default='Witness',
                          help='Problem domain (Witness or SlidingTile)')
 
     parser.add_argument ('-b', action='store', dest='search_budget', default=1,
                          help='The initial budget (nodes expanded) allowed to the bootstrap procedure')
 
-    parser.add_argument ('-g', action='store', dest='gradient_steps', default=100,
+    parser.add_argument ('-g', action='store', dest='gradient_steps', default=10,
                          help='Number of gradient steps to be performed in each iteration of the Bootstrap system')
 
     parser.add_argument ('-cpuct', action='store', dest='cpuct', default='1.0',
@@ -33,10 +34,6 @@ def parameter_parser():
 
     parser.add_argument ('-time', action='store', dest='time_limit', default='43200',
                          help='Time limit in seconds for search')
-
-    parser.add_argument ('-scheduler', action='store', default='uniform',
-                         dest='scheduler',
-                         help='Run Bootstrap with a scheduler (either uniform or gbs)')
 
     parser.add_argument ('-mix', action='store', dest='mix_epsilon', default='0.0',
                          help='Mixture with a uniform policy')

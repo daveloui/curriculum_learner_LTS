@@ -59,7 +59,7 @@ class ProblemNode:
 
 
 class Bootstrap:
-    def __init__(self, states, output, scheduler, use_GPUs=False, ncpus=1, initial_budget=1, gradient_steps=10,
+    def __init__(self, states, output, use_GPUs=False, ncpus=1, initial_budget=1, gradient_steps=10,
                  params_diff='final'):
         self._states = states
         self._model_name = output
@@ -69,10 +69,8 @@ class Bootstrap:
         self._gradient_steps = gradient_steps
         self._batch_size = 32
         self._kmax = 10
-        self._scheduler = scheduler
         self._all_puzzle_names = set(states.keys())  ## FD what do we use this for?
-        self._puzzle_dims = self._model_name.split('-')[
-            0]  # self._model_name has the form '<puzzle dimension>-<problem domain>-<loss name>'
+        self._puzzle_dims = self._model_name.split('-')[0]  # self._model_name has the form '<puzzle dimension>-<problem domain>-<loss name>'
         self._log_folder = 'logs_large/' + self._puzzle_dims
         self._models_folder = 'trained_models_large/BreadthFS_' + self._model_name
         self._params_diff = params_diff
@@ -82,7 +80,9 @@ class Bootstrap:
             self._ordering_folder = 'solved_puzzles/puzzles_' + self._puzzle_dims + '_theta_i+1-theta_i'
 
         if not os.path.exists(self._models_folder):
-            os.makedirs(self._models_folder, exist_ok=True)
+            ipdb.set_trace()
+            raise FileNotFoundError
+            # os.makedirs(self._models_folder, exist_ok=True)
 
         if not os.path.exists(self._log_folder):
             os.makedirs(self._log_folder, exist_ok=True)
@@ -313,71 +313,70 @@ class Bootstrap:
         if len(self.current_solved_puzzles) == self._number_problems:  # and iteration % 2 != 0.0:
             save_data_to_disk(self.Rank_max_new_metric,
                               join(self._ordering_folder,
-                                   'Rank_NewMetric_BFS_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Rank_NewMetric_BFS_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self.Rank_max_dot_prods,
                               join(self._ordering_folder,
-                                   'Rank_MaxDotProd_BFS_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Rank_MaxDotProd_BFS_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self.Rank_max_cosines,
                               join(self._ordering_folder,
-                                   'Rank_MaxCosines_BFS_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Rank_MaxCosines_BFS_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self.Rank_min_costs,
                               join(self._ordering_folder,
-                                   'Rank_MinLevinCost_BFS_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Rank_MinLevinCost_BFS_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self.ordering_new_metric,
                               join(self._ordering_folder,
-                                   'Ordering_NewMetric_BFS_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Ordering_NewMetric_BFS_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self.ordering_dot_prods,
                               join(self._ordering_folder,
-                                   'Ordering_DotProds_BFS_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Ordering_DotProds_BFS_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self.ordering_cosines,
                               join(self._ordering_folder,
-                                   'Ordering_Cosines_BFS_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Ordering_Cosines_BFS_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self.ordering_levin_scores,
                               join(self._ordering_folder,
-                                   'Ordering_LevinScores_BFS_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Ordering_LevinScores_BFS_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self.indexes_rank_data,
                               join(self._ordering_folder,
-                                   'Idxs_rank_data_BFS_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Idxs_rank_data_BFS_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self._new_metric_data_P,
                               join(self._ordering_folder,
-                                   'New_metric_over_P_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'New_metric_over_P_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self._Levi_metric_P,
                               join(self._ordering_folder,
-                                   'Levi_metric_over_P_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Levi_metric_over_P_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self._cosine_data_P,
                               join(self._ordering_folder,
-                                   'L2_Grad_P_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'L2_Grad_P_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self._dot_prod_data_P,
                               join(self._ordering_folder,
-                                   'Dot_Prod_over_P_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Dot_Prod_over_P_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self._levin_costs_P,
                               join(self._ordering_folder,
-                                   'Levin_Cost_over_P_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Levin_Cost_over_P_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self._average_levin_costs_P,
                               join(self._ordering_folder,
-                                   'Average_Levin_Cost_over_P_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Average_Levin_Cost_over_P_theta_n-theta_i.pkl'))
 
             save_data_to_disk(self._training_losses_P,
                               join(self._ordering_folder,
-                                   'Training_Loss_over_P_theta_n-theta_i_' + str(self._puzzle_dims) + ".pkl"))
+                                   'Training_Loss_over_P_theta_n-theta_i.pkl'))
 
             nn_model.save_weights(join(self._models_folder, "Final_weights_n-i.h5"))
 
     def solve_problems(self, planner, nn_model, parameters):
         print("in bootstrap solve_problems -- now going to call _solve_uniform_online")
-        if self._scheduler == 'online':
-            self._solve_uniform_online(planner, nn_model, parameters)
+        self._solve_uniform_online(planner, nn_model, parameters)

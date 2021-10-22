@@ -88,18 +88,16 @@ def main():
         bootstrap = None
         if parameters.learning_mode:
             if not parameters.load_debug_data:
-                print("no loading")
+                print("not going to compute cosine/dot-prod measurements")
                 bootstrap = Bootstrap_No_Debug (states, parameters.model_name,
-                                                parameters.scheduler,
                                                 ncpus=ncpus,
                                                 initial_budget=int (parameters.search_budget),
                                                 gradient_steps=int (parameters.gradient_steps),
                                                 k_expansions=k_expansions)
 
             else:
-                print("loading")
+                print("will compute cosine/dot-prod measurements")
                 bootstrap = Bootstrap (states, parameters.model_name,
-                                       parameters.scheduler,
                                        ncpus=ncpus,
                                        initial_budget=int (parameters.search_budget),
                                        gradient_steps=int (parameters.gradient_steps),
@@ -120,16 +118,17 @@ def main():
 
             if parameters.learning_mode:
                 solve_problems_start_time = time.time()
+                print("gonna call solve_problems")
                 bootstrap.solve_problems (bfs_planner, nn_model, parameters)
                 solve_problems_end_time = time.time()
                 print("time to execute entire prog =", solve_problems_end_time - solve_problems_start_time)
             elif parameters.blind_search:
                 search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
                         int (parameters.search_budget))
-            else:
-                nn_model.load_weights (join ('trained_models_large', parameters.model_name, 'model_weights'))
-                search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
-                        int (parameters.search_budget))
+            # else:
+            #     nn_model.load_weights(join('trained_models_large', 'BreadthFS_' + parameters.model_name, 'model_weights'))
+            #     search (states, bfs_planner, nn_model, ncpus, int (parameters.time_limit),
+            #             int (parameters.search_budget))
 
 
 if __name__ == "__main__":

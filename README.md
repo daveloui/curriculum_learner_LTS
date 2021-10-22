@@ -1,28 +1,65 @@
 # curriculum_learner_LTS  
 
-Levin tree search guided by both a policy and a heuristic function
  
-**Goal**: solve Witness puzzles using Levin Tree Search (LevinTS) in a way that generates a curriculum of puzzles.  
+**Goal**: solve Witness puzzles using Levin Tree Search (LTS) in a way that generates a curriculum of puzzles. We compare the ordering of puzzles to Jonathan Blow's hand-crafted curriculum.  
+For more information on LTS: https://arxiv.org/abs/1811.10928  
+  
+**Overview**: The LTS solver is parametrized by a neural-network (NN), whose initial weights are randomly sampled.   
+The program runs a number of iterations over the dataset of puzzles. 
+In each iteration, we invoke LTS to solve as many puzzles as possible with the current budget. 
+Each time we solve a puzzle, we remove it from the set. 
+If at least one puzzle is solved in the current iteration, we train the NN with the set of solved puzzles.
+Else, if no puzzles are solved in the current iteration, we double the budget and try again.  
 
-We compare the ordering of puzzles to Jonathan Blow's hand-crafted curriculum.  
+To get an ordering, we compute the cosine and dot product between each iteration's current NN weights and the final NN weights.  
+Once all the iterations are done, we look at the cosine and dot-product measurements.
+If the cosines or dot-products in one iteration were very high, this means that the iteration's set of solved puzzles aligns with the final NN weights (which can solve all puzzles). 
+Therefore, the current iteration's puzzles are important and should be included in the curriculum.
+
+
+The way experiments are conducted is:
+1. Run the program and store the NN weights after every iteration of the algorithm.
+2. Rerun the program a second time and compute the metrics we need for evaluation (cosine similarity, dot-products, etc).
+3. Evaluate and plot results.
  
+
+### Dependencies
+Packages are stored in a `requirements.txt` file. To install:  
+<pre><code> pip install -r requirements.txt </code></pre>
+If you are using a remote machine (e.g., a Compute Canada machine), you can set up a vrtual environment and then install the dependencies.
 
 ### Step-by-step example:
-Note: This code was generated with the intention of running on a ComputeCanada cluster.
+Case I: working from a Compute Canada remote machine:
 1. Log into Compute Canada  
-<pre><code> ssh cedar </code></pre>
+<pre><code> ssh cedar  # <---- logging into the Cedar cluster </code></pre>
+2. Activate your virtual environment and install dependencies.
+<pre><code>virtualenv -p python3 myenv 
+. myenv/bin/activate
+pip install -r requirements.txt
+</code></pre>
 
-#TODO: which dependencies do I need? How can I run this locally?
-
-2. If you wish to run the Best-First Search (BFS) version of LevinTS, run:
+3. To submit your experiment, run:
 <pre><code> sbatch ./FD_get_parameters_BFS.sh </code></pre>
-Otherwise, if you wish to submit a job that runs the Depth-First Search (DFS) version of LevinTS:
-<pre><code> sbatch ./FD_get_parameters_DepthFS.sh </code></pre>
+**Important**: If you are submitting the first round of the experiment, make sure that `FD_get_parameters_BFS.sh` doesn't have the `--load_debug_data` flag. Otherwise, add the `--load_debug_data` flag.
+4. Once the jobs are ready, you will find the results in the folders `solved_puzzles/` and `logs_large/`.   
+5. To plot results, `cd` into `solved_puzzles` and run `open_pkl_files_Batch_data.py`. 
+   If `./FD_get_parameters_BFS.sh` was not run with the default arguments, you will need to give `open_pkl_files_Batch_data.py` and pass the respective arguments. 
+   The flags and descriptions are provided in `open_pkl_files_Batch_data.py`. When you run this script, a line will print out saying "The plots are found in <subdirectory>".
 
-3. Once the jobs are ready, you will find the results in the folders `solved_puzzles/` and `logs_large/`.   
+Case II: You are working locally.
+# TODO: how to set up conda environment?
+1. To install dependencies locally, I prefer to create an anaconda environment, and then install dependencies one by one.
+2. Instead of using sbatch to submit a job, you can directly run `main.py`:
+<pre><code> python main.py --learn </code></pre>
+**Important**: If you are submitting the first round of the experiment, make sure that `FD_get_parameters_BFS.sh` doesn't have the `--load_debug_data` flag. Otherwise, add the `--load_debug_data` flag.
+This runs the experiment with the default arguments. If you wish to select different arguments, go to `src/parameter_parser.py` where the parameter names, flags and descriptions are listed.
+3. Same as step #4 above.
+4. Same as step #5 above.
+
+# TODO: which arguments do I absolutely need to include?
 
 ### How to set up your experiment:
-If using Compute Canada, in either of these bash scripts mentioned above, I set the following variables:
+If using Compute Canada, go to `./FD_get_parameters_BFS.sh` and set the following variables of your experiment:
 <pre><code>loss="CrossEntropyLoss"  --> loss function that you want to use.
 algorithm="Levin"  --> search algorithm ("Levin" stands for Levin Tree Search)
 domain_name="Witness"   --> domain of the puzzles
@@ -36,6 +73,22 @@ I could also set other variables, such as `search_budget`, `gradient_steps`, etc
 ### Structure of the repository:  
 #### src 
 This directory contains the most important code that you need to run.  
-- `main.py` parses the parameters that you decided on, and runs the experiment
+- `main.py`: parses the parameters that you decided on, and runs the experiment
+- `parameter_parser.py`: parses the parameters you decided on
+- `bootstrap.py`: main algorithm that iterates through all the puzzles found in `problems_dir/` and calls the LTS solver. Cosine and dot-product data are computed and stored in `solved_puzzles/`.
+- `bootstrap_no_debug_data.py`: main algorithm that iterates through all the puzzles found in `problems_dir/` and calls the LTS solver. No cosine or dot-product measurements are computed.
+- `compute_cosines.py`: script that computes the cosines, dot-products and any other measurement that we wish to record.
+- `game_state.py`: script that computes all necessary operations to determine the state of the game.
+- ??
 
-### 1. How to run the program:
+#### solved_puzzles
+Contains all the measurements made: cosines, dot-products, ordering of puzzles, etc.
+
+#### trained_models_large
+Contains the NN weights.
+
+#### problems
+Contains folders that store the puzzles. If you wish to run a small toy experiment, I suggest using `puzzles_small/`.
+
+#### logs_large
+Stored logging information on the number of puzzles solved on each iteration, the current LTS budget, the NN loss, etc.
